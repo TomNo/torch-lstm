@@ -3,6 +3,15 @@ require 'nn'
 require 'json'
 require 'optim'
 
+torch.setdefaulttensortype('torch.FloatTensor')
+
+loadCuda = function()
+  require 'cutorch'
+  require 'cunn'
+end
+--
+cudaEnabled = pcall(loadCuda)
+
 -- Firt try to conver to number, then bool otherwise string is returned
 -- TODO this can be pretty messy if something goes wrong -> terrible debugging
 function parseConfigOption(val)
@@ -83,10 +92,16 @@ function NeuralNetwork:_createLayers()
     end
     if layer.type == NeuralNetwork.MULTICLASS_CLASSIFICATION then
       self.criterion = nn.ClassNLLCriterion()
+      if cudaEnabled then
+        self.criterion = self.criterion:cuda()
+      end
     else
       error("Unknown objective function " .. layer["type"] .. ".")
     end
     end
+  end
+  if cudaEnabled then
+    self.model = self.model:cuda()
   end
   local params, g_p = self.model:getParameters()
   self.m_params = params
@@ -125,10 +140,10 @@ function NeuralNetwork:train(dataset)
     momentum = self.conf.momentum,
     learningRateDecay = self.conf.learning_rate_decay
   }
-  print(self.model)
   self.model:training() -- not sure that it is necessary
   for epoch=1, self.conf.max_epochs do
     print('==> doing epoch ' .. epoch .. ' on training data.')
+    local time = sys.clock()
     local shuffle
     if self.conf.shuffle_sequences == true then
       shuffle = torch.randperm(dataset:size())
@@ -136,7 +151,6 @@ function NeuralNetwork:train(dataset)
       shuffle = torch.range(1, dataset:size())
     end
 
-    -- TODO there should be transfer to gpu if cuda enabled
     for i=1, dataset:size(), self.conf.parallel_sequences do
       local inputs = torch.Tensor(self.conf.parallel_sequences, dataset[1][1]:nElement())
       local labels = torch.Tensor(self.conf.parallel_sequences, dataset[1][2]:nElement())
@@ -147,6 +161,10 @@ function NeuralNetwork:train(dataset)
         index = index + 1
       end
       labels = labels:squeeze()
+      if cudaEnabled then
+        labels = labels:cuda()
+        inputs = inputs:cuda()
+      end
 
       local feval = function(x)
         collectgarbage()
@@ -170,6 +188,9 @@ function NeuralNetwork:train(dataset)
       end -- feval
       optim.sgd(feval, self.m_grad_params, opt_params)
     end -- mini batch
+    print("Epoch has taken " .. sys.clock() - time .. " seconds.")
+    local g_error,  c_error= self:test(dataset)
+    print("Error on training set is: " .. g_error .. "% " .. c_error)
   end -- epoch
 end
 
@@ -178,19 +199,31 @@ function NeuralNetwork:forward(dataset)
 end
 
 function NeuralNetwork:test(dataset)
-  local error = 0
+  local g_error = 0
+  local c_error = 0
   for i=1,dataset:size() do
-    local labels = self.model:forward(dataset[i][1])
-    local _, l_max =  labels:max(1)
-    if l_max[1] ~= dataset[i][2][1] then
-      error = error + 1
+    local inputs = 0
+    local targets = 0
+    if cudaEnabled then
+      inputs = dataset[i][1]:cuda()
+      targets = dataset[i][2]:cuda()
     end
+    local labels = self.model:forward(inputs)
+    local _, l_max =  labels:max(1)
+    if l_max[1] ~= targets[1] then
+      g_error = g_error + 1
+    end
+    c_error = c_error + self.criterion(labels, targets[1])
   end
-  return (error / dataset:size()) * 100
+  return (g_error / dataset:size()) * 100, c_error
 end
 
 function NeuralNetwork:saveModel(filename)
   torch.save(filename, self.model)
+end
+
+function NeuralNetwork:loadModel(filename)
+  self.model = torch.load(filename)
 end
 
 

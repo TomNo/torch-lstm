@@ -30,6 +30,8 @@ testData:normalizeGlobal(mean, std)
 --
 --
 test_dataset = {}
+local c_error = 0
+local g_error = 0
 for i=1,testData:size() do
   local label = testData[i][2]
   local _, m = label:max(1)
@@ -39,8 +41,8 @@ end
 function test_dataset:size()
   return #test_dataset
 end
-
-print("Error rate is: " .. net:test(test_dataset) .. "%.")
+g_error, c_error = net:test(test_dataset)
+print("Error rate is: " .. g_error .. "%.")
 
 dataset = {}
 for i=1,trainData:size() do
@@ -55,7 +57,8 @@ end
 
 net:train(dataset)
 
-print("Error rate is: " .. net:test(test_dataset) .. "%.")
+g_error, c_error = net:test(test_dataset)
+print("Error rate is: " .. g_error .. "%.")
 
 print("training done")
 
