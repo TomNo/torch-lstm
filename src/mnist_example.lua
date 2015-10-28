@@ -19,7 +19,7 @@ net:init()
 
 -- mnist testing
 geometry = {32,32}
-nbTrainingPatches = 2000
+nbTrainingPatches = 5000
 nbTestingPatches = 1000
 trainData = mnist.loadTrainSet(nbTrainingPatches, geometry)
 trainData:normalizeGlobal(mean, std)
@@ -58,6 +58,7 @@ end
 net:train(dataset)
 
 g_error, c_error = net:test(test_dataset)
+print(net.model)
 print("Error rate is: " .. g_error .. "%.")
 
 print("training done")

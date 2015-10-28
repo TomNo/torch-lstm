@@ -112,11 +112,9 @@ function NeuralNetwork:_addLayer(layer, p_layer)
   if layer.type == NeuralNetwork.INPUT then
     return -- just for backward compatibility
   elseif layer.type == NeuralNetwork.FEED_FORWARD_LOGISTIC then
-    --    self.model:add(nn.Add(layer.bias)) seems like that bias is already included with default value of 1
     self.model:add(nn.Linear(p_layer.size, layer.size))
     self.model:add(nn.Sigmoid())
   elseif layer.type == NeuralNetwork.FEED_FORWARD_TANH then
-    --    self.model:add(nn.Add(layer.bias)) seems like that bias is already included with default value of 1
     self.model:add(nn.Linear(p_layer.size, layer.size))
     self.model:add(nn.Tanh())
   elseif layer.type == NeuralNetwork.LSTM then
@@ -186,7 +184,7 @@ function NeuralNetwork:train(dataset)
         -- return f and df/dX
         return err, self.m_grad_params
       end -- feval
-      optim.sgd(feval, self.m_grad_params, opt_params)
+      optim.sgd(feval, self.m_params, opt_params)
     end -- mini batch
     print("Epoch has taken " .. sys.clock() - time .. " seconds.")
     local g_error,  c_error= self:test(dataset)
@@ -201,19 +199,29 @@ end
 function NeuralNetwork:test(dataset)
   local g_error = 0
   local c_error = 0
-  for i=1,dataset:size() do
-    local inputs = 0
-    local targets = 0
+  for i=1, dataset:size(), self.conf.parallel_sequences do
+    local inputs = torch.Tensor(self.conf.parallel_sequences, dataset[1][1]:nElement())
+    local targets = torch.Tensor(self.conf.parallel_sequences, dataset[1][2]:nElement())
+    local index = 1
+    for y=i, math.min(i+self.conf.parallel_sequences - 1, dataset:size()) do
+      inputs[{index,{}}] = dataset[y][1]
+      targets[{index,{}}] = dataset[y][2]
+      index = index + 1
+    end
+    targets = targets:squeeze()
     if cudaEnabled then
-      inputs = dataset[i][1]:cuda()
-      targets = dataset[i][2]:cuda()
+      inputs = inputs:cuda()
+      targets = targets:cuda()
     end
     local labels = self.model:forward(inputs)
-    local _, l_max =  labels:max(1)
-    if l_max[1] ~= targets[1] then
-      g_error = g_error + 1
+    c_error = c_error + self.criterion(labels, targets)
+    
+    for c=1, self.conf.parallel_sequences do
+      local _, l_max =  labels[c]:max(1)
+      if l_max[1] ~= targets[c] then
+        g_error = g_error + 1
+      end    
     end
-    c_error = c_error + self.criterion(labels, targets[1])
   end
   return (g_error / dataset:size()) * 100, c_error
 end

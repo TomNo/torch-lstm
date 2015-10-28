@@ -12,6 +12,19 @@
             "type": "feedforward_tanh"
         },
         {
+            "size": 2048,
+            "name": "feedforward_tanh",
+            "bias": 1.0,
+            "type": "feedforward_tanh"
+        },
+        {
+            "size": 2048,
+            "name": "feedforward_tanh",
+            "bias": 1.0,
+            "type": "feedforward_tanh"
+        },
+ 
+        {
             "size": 10,
             "name": "output",
             "bias": 1.0,
