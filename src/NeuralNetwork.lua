@@ -131,7 +131,10 @@ function NeuralNetwork:_addLayer(layer, p_layer)
 end
 
 --TODO add crossvalidation somehow??
-function NeuralNetwork:train(dataset)
+function NeuralNetwork:train(dataset, cv_dataset)
+  if cudaEnabled then
+    print("Training on GPU.")
+  end
   local opt_params = {
     learningRate = self.conf.learning_rate,
     weightDecay = self.conf.weight_decay,
@@ -189,6 +192,8 @@ function NeuralNetwork:train(dataset)
     print("Epoch has taken " .. sys.clock() - time .. " seconds.")
     local g_error,  c_error= self:test(dataset)
     print("Error on training set is: " .. g_error .. "% " .. c_error)
+    local cv_g_error,  cv_c_error= self:test(cv_dataset)
+    print("Error on training set is: " .. cv_g_error .. "% " .. cv_c_error)
   end -- epoch
 end
 
@@ -233,7 +238,4 @@ end
 function NeuralNetwork:loadModel(filename)
   self.model = torch.load(filename)
 end
-
-
-
 

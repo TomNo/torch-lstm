@@ -10,10 +10,12 @@ local function transfer_to_gpu(data)
   end
 end
 
-local LstmLayer, parent = torch.class('LstmLayer', 'nn.Module')
---local BiLstmLayer, parent = torch.class('BiLstmLayer', 'nn.Module')
+local Lstm, parent = torch.class('Lstm', 'nn.Module')
+local BiLstm, b_parent = torch.class('BiLstm', 'Lstm')
+
+--local Lstm, parent = torch.class('Lstm', 'nn.Module')
 --
---function BiLstmLayer:__init(params)
+--function Lstm:__init(params)
 --  parent.__init(self)
 --  for item, value in pairs(params) do
 --    self[item] = value
@@ -26,7 +28,7 @@ local LstmLayer, parent = torch.class('LstmLayer', 'nn.Module')
 --  
 --  params.l_size = params.l_size / 2
 --  
---  self.fw_layer = LstmLayer(params)
+--  self.fw_layer = Lstm(params)
 --  -- copy inputs and revert inputs
 --  bw_params = {}
 --  for item, value in pairs(params) do
@@ -39,10 +41,10 @@ local LstmLayer, parent = torch.class('LstmLayer', 'nn.Module')
 --    bw_inputs[-i] = params.inputs[i]
 --  end 
 --  bw_params.inputs = bw_inputs
---  self.bw_layer = LstmLayer(bw_params)
+--  self.bw_layer = Lstm(bw_params)
 --end
 --
---function BiLstmLayer:forward()
+--function Lstm:forward()
 --  local f_outputs = self.fw_layer:forward()
 --  local b_outputs = self.bw_layer:forward()
 --  local middle = self.outputs:size(2) / 2
@@ -53,24 +55,29 @@ local LstmLayer, parent = torch.class('LstmLayer', 'nn.Module')
 --  return self.outputs
 --end
 
-function LstmLayer:__init(params)
+function BiLstm:__init(i_size, o_size)
+  self.bidirectional = true
+  b_parent.__init(self, i_size, o_size)
+end
+
+Lstm.I_GATE = 1
+Lstm.F_GATE = 2
+Lstm.O_GATE = 3
+Lstm.C_STATE =4
+
+Lstm.W_T_COUNT = 4
+Lstm.P_W_COUNT = 3
+
+function Lstm:__init(i_size, o_size)
   parent.__init(self)
-  for item, value in pairs(params) do
-    self[item] = value
-  end
-  
+--  for item, value in pairs(params) do
+--    self[item] = value
+--  end
+  self.i_size = i_size
+  self.o_size = o_size
   if self.bidirectional and self.l_size % 2 ~= 0 then
     error("Cannot consturct bidirectional layer from odd neuron count.")
   end
-  
-  self.I_GATE = 1
-  self.F_GATE = 2
-  self.O_GATE = 3
-  self.C_STATE =4
-  
-  self.W_T_COUNT = 4
-  self.P_W_COUNT = 3
-  
   self.g_activation = nn.Sigmoid()
   
   self.i_count = self.max_seq_len * self.par_seq
@@ -86,7 +93,7 @@ function LstmLayer:__init(params)
 end
 
 
-function LstmLayer:reset(stdv)
+function Lstm:reset(stdv)
    if stdv then
       stdv = stdv * math.sqrt(3)
    else
@@ -104,7 +111,7 @@ function LstmLayer:reset(stdv)
 end
 
  -- add input activations
-function LstmLayer:addInputActivations(input)
+function Lstm:addInputActivations(input)
   for i=1, self.l_size do
     for y=1, self.W_T_COUNT do
       self.acts[i][y] = input * self.in_weights[i][y]
@@ -113,7 +120,7 @@ function LstmLayer:addInputActivations(input)
 end
 
 -- add output activations
-function LstmLayer:addOutputActivations()
+function Lstm:addOutputActivations()
   for k=1,self.l_size do
     for l=1,self.W_T_COUNT do
       local outs = self.outputs[{{self.p_i_start, self.p_i_end},{}}]
@@ -123,7 +130,7 @@ function LstmLayer:addOutputActivations()
 end
 
 -- compute block activations
-function LstmLayer:computeBlocks()
+function Lstm:computeBlocks()
     for l=1, self.l_size do
     local i_acts = self.acts[{l, self.I_GATE, {self.i_start, self.i_end}}]
     local o_acts = self.acts[{l, self.O_GATE, {self.i_start, self.i_end}}]
@@ -159,7 +166,7 @@ function LstmLayer:computeBlocks()
   end
 end
 
-function LstmLayer:updateOutput(input)
+function Lstm:updateOutput(input)
   self:addInputActivations(input)
   for t=1,self.max_seq_len do
     self.t_step = t
@@ -182,7 +189,7 @@ local function main()
   
   local params = {['bias']=1.0, ['l_size']=10, ['max_seq_len']=max_seq_len,
                   ['input_size']=100, ['par_seq']=par_seq, ['i_size']=i_size, ['bidirectional']=true}
-  local layer = LstmLayer(params)
+  local layer = Lstm(params)
   local outputs = layer(inputs)
   collectgarbage()
   print("end")
@@ -192,9 +199,9 @@ main()
 
 
 --tester = torch.Tester()
---LstmLayerTests = {}
+--LstmTests = {}
 --
---function LstmLayerTests.testAddInputActivations()
+--function LstmTests.testAddInputActivations()
 --  local par_seq = 2
 --  local max_seq_len = 3
 --  local i_count = par_seq * max_seq_len
@@ -203,7 +210,7 @@ main()
 --  
 --  local params = {['bias']=1.0, ['l_size']=3, ['max_seq_len']=max_seq_len,
 --                  ['input_size']=100, ['par_seq']=par_seq, ['inputs']=inputs}
---  local layer = LstmLayer(params)
+--  local layer = Lstm(params)
 --  layer.in_weights = torch.range(1,24):resize(3,4,2)
 --  layer:addInputActivations()
 --  local result = {{{5,11,17,23,29,35},{11,25,39,53,67,81},{17,39,61,83,105,127},{23,53,83,113,143,173}},
@@ -220,7 +227,7 @@ main()
 --  
 --end
 --
---function LstmLayerTests.testAddOutputActivations()
+--function LstmTests.testAddOutputActivations()
 --  local par_seq = 2
 --  local max_seq_len = 3
 --  local i_count = par_seq * max_seq_len
@@ -229,7 +236,7 @@ main()
 --  
 --  local params = {['bias']=1.0, ['l_size']=2, ['max_seq_len']=max_seq_len,
 --                  ['input_size']=100, ['par_seq']=par_seq, ['inputs']=inputs}
---  local layer = LstmLayer(params)
+--  local layer = Lstm(params)
 --  layer.out_weights = torch.range(1,16):resize(2,4,2)
 --  layer.acts:fill(0)
 --  layer.outputs[{{1,2},{}}] = torch.range(6):resize(2,3)
@@ -237,5 +244,5 @@ main()
 --  local result = ({})
 --end
 --
---tester:add(LstmLayerTests)
+--tester:add(LstmTests)
 --tester:run()
