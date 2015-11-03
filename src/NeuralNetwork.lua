@@ -41,6 +41,8 @@ function NeuralNetwork:__init(params, log)
     self[key] = value
   end
   self.desc = nil -- should contain json net topology description
+  self.output_size = nil -- size of the last layer
+  self.input_size = nil  -- size of the input layer
   self.conf = {} -- configuration regarding training
   self.m_params = nil -- model
   self.m_grad_params = nil -- model
@@ -49,11 +51,14 @@ function NeuralNetwork:__init(params, log)
 end
 
 function NeuralNetwork:init()
-  local f = assert(io.open(self.network_file, "r"))
+  local f = assert(io.open(self.network_file, "r"),
+   "Coult not open the network file: " .. self.network_file)
   local net_desc = f:read("*all") -- this is strange might be better way how to read whole file
   f:close()
   -- description just as in the currennt
   self.desc = json.decode(net_desc)
+  self.output_size = self.desc.layers[#self.desc.layers-1].size
+  self.input_size = self.desc.layers[1].size
   self.model = nn.Sequential()
   self:_createLayers()
   self:_parseConfig(self.config_file)
@@ -63,7 +68,8 @@ end
 -- save the config into to the self.conf
 -- TODO network description file name is contained in config.cfg
 function NeuralNetwork:_parseConfig(conf_filename)
-  local f = assert(io.open(conf_filename, "r"))
+  local f = assert(io.open(conf_filename, "r"),
+   "Could not open the configuration file: " .. conf_filename)
   local lines = f:lines()
   for line in lines do
     -- :D lua support for string is only via regexs, how sad :D
@@ -135,6 +141,8 @@ function NeuralNetwork:train(dataset, cv_dataset)
   if cudaEnabled then
     print("Training on GPU.")
   end
+  assert(dataset[1][1]:size(1) == self.input_size,
+   "Dataset input does not fit first layer size.")
   local opt_params = {
     learningRate = self.conf.learning_rate,
     weightDecay = self.conf.weight_decay,
@@ -157,8 +165,8 @@ function NeuralNetwork:train(dataset, cv_dataset)
       local labels = torch.Tensor(self.conf.parallel_sequences, dataset[1][2]:nElement())
       local index = 1
       for y=i, math.min(i+self.conf.parallel_sequences - 1, dataset:size()) do
-        inputs[{index,{}}] = dataset[shuffle[y]][1]
-        labels[{index,{}}] = dataset[shuffle[y]][2]
+        inputs[index] = dataset[shuffle[y]][1]
+        labels[index] = dataset[shuffle[y]][2]
         index = index + 1
       end
       labels = labels:squeeze()
@@ -203,20 +211,38 @@ function NeuralNetwork:train(dataset, cv_dataset)
 end
 
 function NeuralNetwork:forward(dataset)
-  return self.model:forward(dataset)
+  assert(dataset[1][1]:size(1) == self.input_size,
+   "Dataset input does not match first layer size.")
+  local outputs = torch.Tensor(dataset:size(), self.output_size)
+  for i=1, dataset:size(), self.conf.parallel_sequences do
+    local rows = math.min(i+self.conf.parallel_sequences, dataset:size() + 1) - i
+    local inputs = torch.Tensor(rows, dataset[1][1]:nElement())
+    local index = 1
+    for y=i, math.min(i+self.conf.parallel_sequences-1, dataset:size()) do
+      inputs[index] = dataset[y][1]
+      index = index + 1
+    end
+    if cudaEnabled then
+      inputs = inputs:cuda()
+    end
+    local labels = self.model:forward(inputs)
+    outputs[{{i, i+rows - 1},{}}]:copy(labels)
+  end
+  return outputs
 end
 
 function NeuralNetwork:test(dataset)
+  assert(dataset[1][1]:size(1) == self.input_size, "Dataset inputs does not match first layer size.")
   local g_error = 0
   local c_error = 0
   for i=1, dataset:size(), self.conf.parallel_sequences do
     local rows = math.min(i+self.conf.parallel_sequences, dataset:size() + 1) - i
-    local inputs = torch.Tensor(rows, dataset[1][1]:nElement())
-    local targets = torch.Tensor(rows, dataset[1][2]:nElement())
+    local inputs = torch.Tensor(rows, self.input_size)
+    local targets = torch.Tensor(rows, dataset[1][2]:size(1))
     local index = 1
     for y=i, math.min(i+self.conf.parallel_sequences-1, dataset:size()) do
-      inputs[{index,{}}] = dataset[y][1]
-      targets[{index,{}}] = dataset[y][2]
+      inputs[index] = dataset[y][1]
+      targets[index] = dataset[y][2]
       index = index + 1
     end
     targets = targets:squeeze()
