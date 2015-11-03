@@ -228,6 +228,7 @@ function NeuralNetwork:forward(dataset)
     local labels = self.model:forward(inputs)
     outputs[{{i, i+rows - 1},{}}]:copy(labels)
   end
+  collectgarbage()
   return outputs
 end
 
@@ -259,6 +260,7 @@ function NeuralNetwork:test(dataset)
       end    
     end
   end
+  collectgarbage()
   return (g_error / dataset:size()) * 100, c_error
 end
 

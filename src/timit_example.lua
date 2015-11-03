@@ -18,14 +18,15 @@ net = NeuralNetwork(params, cmd)
 net:init()
 train_ds = Dataset(net.conf.train_file)
 tr_data = train_ds:get()
-cv_ds = Dataset(net.conf.train_file)
-cv_data = train_ds:get()
-
+cv_ds = Dataset(net.conf.val_file)
+cv_data = cv_ds:get()
+test_ds = Dataset(net.conf.test_file)
+test_data = test_ds:get()
 net:train(tr_data, cv_data)
-
-g_error, c_error = net:test(cv_data)
-print("Error rate is: " .. g_error .. "%.")
-
+net:saveModel('timit_network_trained')
+local output = net:forward(test_data)
+output_ds = Dataset('timit_result')
+output_ds:save(output, test_data.tags)
 print("training done")
 
 
