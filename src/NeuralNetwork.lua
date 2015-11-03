@@ -191,13 +191,14 @@ function NeuralNetwork:train(dataset, cv_dataset)
     end -- mini batch
     collectgarbage()
     print("Epoch has taken " .. sys.clock() - time .. " seconds.")
-    local g_error,  c_error= self:test(dataset)
-    print("Error on training set is: " .. g_error .. "% " .. c_error)
-    if cv_dataset then
-      local cv_g_error,  cv_c_error= self:test(cv_dataset)
-      print("Error on cv set set is: " .. cv_g_error .. "% " .. cv_c_error)
+    if not self.conf.validate_every or epoch % self.conf.validate_every == 0 then
+      local g_error,  c_error= self:test(dataset)
+      print("Error on training set is: " .. g_error .. "% " .. c_error)
+      if cv_dataset then
+        local cv_g_error,  cv_c_error= self:test(cv_dataset)
+        print("Error on cv set set is: " .. cv_g_error .. "% " .. cv_c_error)
+      end
     end
-   
   end -- epoch
 end
 
