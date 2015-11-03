@@ -189,11 +189,15 @@ function NeuralNetwork:train(dataset, cv_dataset)
       end -- feval
       optim.sgd(feval, self.m_params, opt_params)
     end -- mini batch
+    collectgarbage()
     print("Epoch has taken " .. sys.clock() - time .. " seconds.")
     local g_error,  c_error= self:test(dataset)
     print("Error on training set is: " .. g_error .. "% " .. c_error)
-    local cv_g_error,  cv_c_error= self:test(cv_dataset)
-    print("Error on training set is: " .. cv_g_error .. "% " .. cv_c_error)
+    if cv_dataset then
+      local cv_g_error,  cv_c_error= self:test(cv_dataset)
+      print("Error on cv set set is: " .. cv_g_error .. "% " .. cv_c_error)
+    end
+   
   end -- epoch
 end
 
@@ -205,10 +209,11 @@ function NeuralNetwork:test(dataset)
   local g_error = 0
   local c_error = 0
   for i=1, dataset:size(), self.conf.parallel_sequences do
-    local inputs = torch.Tensor(self.conf.parallel_sequences, dataset[1][1]:nElement())
-    local targets = torch.Tensor(self.conf.parallel_sequences, dataset[1][2]:nElement())
+    local rows = math.min(i+self.conf.parallel_sequences, dataset:size() + 1) - i
+    local inputs = torch.Tensor(rows, dataset[1][1]:nElement())
+    local targets = torch.Tensor(rows, dataset[1][2]:nElement())
     local index = 1
-    for y=i, math.min(i+self.conf.parallel_sequences - 1, dataset:size()) do
+    for y=i, math.min(i+self.conf.parallel_sequences-1, dataset:size()) do
       inputs[{index,{}}] = dataset[y][1]
       targets[{index,{}}] = dataset[y][2]
       index = index + 1
@@ -220,8 +225,7 @@ function NeuralNetwork:test(dataset)
     end
     local labels = self.model:forward(inputs)
     c_error = c_error + self.criterion(labels, targets)
-    
-    for c=1, self.conf.parallel_sequences do
+    for c=1, labels:size(1) do
       local _, l_max =  labels[c]:max(1)
       if l_max[1] ~= targets[c] then
         g_error = g_error + 1
