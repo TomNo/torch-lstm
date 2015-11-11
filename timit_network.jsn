@@ -7,15 +7,27 @@
         },
         {
             "size": 2048,
-            "name": "feedforward_tanh",
+            "name": "feedforward_relu",
             "bias": 1.0,
-            "type": "feedforward_tanh"
+            "type": "feedforward_relu"
         },
         {
             "size": 2048,
             "name": "feedforward_tanh",
             "bias": 1.0,
-            "type": "feedforward_tanh"
+            "type": "feedforward_relu"
+        },
+        {
+            "size": 2048,
+            "name": "feedforward_relu",
+            "bias": 1.0,
+            "type": "feedforward_relu"
+        },
+        {
+            "size": 2048,
+            "name": "feedforward_tanh",
+            "bias": 1.0,
+            "type": "feedforward_relu"
         },
  
         {
