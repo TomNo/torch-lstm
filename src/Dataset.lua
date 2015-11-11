@@ -10,6 +10,11 @@ end
 
 -- reads the data from input file and returns the dataset
 function Dataset:get(limit)
+  if limit then
+    print("Loading dataset with limit " .. limit .. " from file " .. self.filename)
+  else
+    print("Loading dataset from file " .. self.filename)
+  end
   local f = hdf5.open(self.filename)
   local data = f:all()
   f:close()
@@ -40,11 +45,13 @@ function Dataset:get(limit)
   end
   parsed_data.size = function () return size end
   parsed_data.tags = tags
+  print("Dataset loaded.")
   return parsed_data
 end
 
 -- saves the data into output file specified on initialization
 function Dataset:save(data, tags)
+  print("Saving dataset into the file " .. self.filename)
   local f = hdf5.open(self.filename, "w")
   local counter = 1
   for i=1, #tags do
@@ -61,4 +68,5 @@ function Dataset:save(data, tags)
     counter = counter + size
   end
   f:close()
+  print("Dataset saved.")
 end

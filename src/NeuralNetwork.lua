@@ -31,6 +31,7 @@ local NeuralNetwork = torch.class('NeuralNetwork')
 NeuralNetwork.FEED_FORWARD_TANH = "feedforward_tanh"
 NeuralNetwork.FEED_FORWARD_LOGISTIC = "feedforward_logistic"
 NeuralNetwork.MULTICLASS_CLASSIFICATION = "multiclass_classification"
+NeuralNetwork.FEED_FORWARD_RELU = "feedforward_relu"
 NeuralNetwork.SOFTMAX = "softmax"
 NeuralNetwork.INPUT = "input"
 NeuralNetwork.LSTM = "lstm"
@@ -51,6 +52,7 @@ function NeuralNetwork:__init(params, log)
 end
 
 function NeuralNetwork:init()
+  print("Initializing neural network.")
   local f = assert(io.open(self.network_file, "r"),
    "Coult not open the network file: " .. self.network_file)
   local net_desc = f:read("*all") -- this is strange might be better way how to read whole file
@@ -123,6 +125,9 @@ function NeuralNetwork:_addLayer(layer, p_layer)
   elseif layer.type == NeuralNetwork.FEED_FORWARD_TANH then
     self.model:add(nn.Linear(p_layer.size, layer.size))
     self.model:add(nn.Tanh())
+  elseif layer.type == NeuralNetwork.FEED_FORWARD_RELU then
+    self.model:add(nn.Linear(p_layer.size, layer.size))
+    self.model:add(nn.ReLU())
   elseif layer.type == NeuralNetwork.LSTM then
     error("Lstm cell is not supported yet.")
   elseif layer.type == NeuralNetwork.BLSTM then
@@ -140,6 +145,8 @@ end
 function NeuralNetwork:train(dataset, cv_dataset)
   if cudaEnabled then
     print("Training on GPU.")
+  else
+    print("Training on CPU.")
   end
   assert(dataset[1][1]:size(1) == self.input_size,
    "Dataset input does not fit first layer size.")
@@ -226,7 +233,7 @@ function NeuralNetwork:forward(dataset)
       inputs = inputs:cuda()
     end
     local labels = self.model:forward(inputs)
-    outputs[{{i, i+rows - 1},{}}]:copy(labels)
+    outputs[{{i, i+rows - 1},{}}]:copy(labels) -- TODO there could also be just = labels:float()
   end
   collectgarbage()
   return outputs
