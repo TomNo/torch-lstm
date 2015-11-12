@@ -9,6 +9,7 @@ function Dataset:__init(filename)
 end
 
 -- reads the data from input file and returns the dataset
+-- TODO refactor
 function Dataset:get(limit)
   if limit then
     print("Loading dataset with limit " .. limit .. " from file " .. self.filename)
@@ -16,36 +17,48 @@ function Dataset:get(limit)
     print("Loading dataset from file " .. self.filename)
   end
   local f = hdf5.open(self.filename)
-  local data = f:all()
-  f:close()
   local parsed_data = {}
   local tags = {}
-  local size = 0 
-  for tag, item in pairs(data) do
-    local cols = item.cols[1]
-    local rows = item.rows[1]
-    local data = item.data:reshape(rows, cols)
-    local a_size = rows
-    for i=1, rows do
-      size = size + 1
-      if item.labels then
-        table.insert(parsed_data, {[1]=data[i], [2]=item.labels[{{i}}]})
-      else
-        table.insert(parsed_data, {[1]=data[i]})
-      end
-      if size == limit then
-        a_size = i
-        break
-      end
-    end
-    table.insert(tags, {tag, a_size})
-    if size == limit then
+  local size = 0
+  local counter = 1
+  local get_data = function() return f:read("/" .. counter):all() end
+  while true do
+    local status, t_data = pcall(get_data)
+    if status then
+      for tag, item in pairs(t_data) do
+        print("Processing tag " .. tag)
+        local cols = item.cols[1]
+        local rows = item.rows[1]
+        local data = item.data:reshape(rows, cols)
+        local a_size = rows
+        for i=1, rows do
+          size = size + 1
+          if item.labels then
+            table.insert(parsed_data, {[1]=data[i], [2]=item.labels[{{i}}]})
+          else
+            table.insert(parsed_data, {[1]=data[i]})
+          end
+          if size + 1 == limit then
+            a_size = i
+            break
+          end
+        end
+        table.insert(tags, {tag, a_size})
+        if size + 1 == limit then
+          break
+        end -- TODO this is not pretty
+      end      
+    else
       break
-    end -- TODO this is not pretty
-  end
+    end
+    if size + 1 == limit then -- this is not pretty at all
+      break
+    end
+  end 
   parsed_data.size = function () return size end
   parsed_data.tags = tags
   print("Dataset loaded.")
+  f:close()
   return parsed_data
 end
 
