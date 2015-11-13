@@ -71,7 +71,6 @@ function Dataset:get(limit)
     print("Loading dataset from file " .. self.filename)
   end
   local f = hdf5.open(self.filename)
-  local o_data = {}
   local o_rows = 0
   local o_cols = 0
   o_rows, o_cols = self:getSize(f, limit)
@@ -85,15 +84,14 @@ function Dataset:get(limit)
   local l_reached = false
   local d_iter = self:dataIter(f)
   while true do
-    if l_reached then
+    if l_reached then -- if limit reached -> stop
       break
     end
     local d_item = d_iter()
-    if not d_item then
+    if not d_item then -- if no more items -> stop
       break
     end
-    for tag, item in pairs(d_item) do
-      print("Processing tag " .. tag)
+    for tag, item in pairs(d_item) do -- there is not other way to get that one key
       local rows = item.rows[1]
       if limit and  rows + size > limit then
         rows = limit - size
@@ -105,14 +103,15 @@ function Dataset:get(limit)
         features[size] = item.data[{{i*cols + 1, (i+1)*cols}}]
       end
       if self:labelsPresent(f) then
-        labels[{{size - rows + 1, size}}] = item.labels
+        -- numbersing in lua starts from 1...
+        labels[{{size - rows + 1, size}}] = item.labels[{{1, rows}}]:add(1)
       end
       table.insert(tags, {tag, rows})
     end      
   end 
-  o_data.size = function () return o_rows end
+  local o_data = {[1]=features, [2]=labels}
+  o_data.size = function() return o_rows end
   o_data.tags = tags
-  o_data = {[1]=features, [2]=labels}
   print("Dataset loaded.")
   f:close()
   return o_data

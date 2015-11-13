@@ -64,6 +64,9 @@ function NeuralNetwork:init()
   self.model = nn.Sequential()
   self:_createLayers()
   self:_parseConfig(self.config_file)
+  if self.conf.cuda then
+    cudaEnabled = (self.conf.cuda == 1)
+  end
 end
 
 -- Parse configuration file, every line consist of key = value
@@ -168,12 +171,14 @@ function NeuralNetwork:train(dataset, cv_dataset)
     end
 
     for i=1, dataset:size(), self.conf.parallel_sequences do
-      local inputs = torch.Tensor(self.conf.parallel_sequences, dataset[1][1]:nElement())
-      local labels = torch.Tensor(self.conf.parallel_sequences, dataset[1][2]:nElement())
+      local b_size = math.min(i+self.conf.parallel_sequences - 1, dataset:size())
+      local inputs = torch.Tensor(b_size, dataset[1][1]:size(1))
+      local labels = torch.Tensor(b_size)
       local index = 1
-      for y=i, math.min(i+self.conf.parallel_sequences - 1, dataset:size()) do
-        inputs[index] = dataset[shuffle[y]][1]
-        labels[index] = dataset[shuffle[y]][2]
+      -- TODO here should be no copying
+      for y=i, b_size do
+        inputs[index] = dataset[1][shuffle[y]]
+        labels[index] = dataset[2][shuffle[y]]
         index = index + 1
       end
       labels = labels:squeeze()
@@ -181,7 +186,6 @@ function NeuralNetwork:train(dataset, cv_dataset)
         labels = labels:cuda()
         inputs = inputs:cuda()
       end
-
       local feval = function(x)
         collectgarbage()
         -- get new parameters
@@ -226,7 +230,7 @@ function NeuralNetwork:forward(dataset)
     local inputs = torch.Tensor(rows, dataset[1][1]:nElement())
     local index = 1
     for y=i, math.min(i+self.conf.parallel_sequences-1, dataset:size()) do
-      inputs[index] = dataset[y][1]
+      inputs[index] = dataset[1][y]
       index = index + 1
     end
     if cudaEnabled then
@@ -246,11 +250,11 @@ function NeuralNetwork:test(dataset)
   for i=1, dataset:size(), self.conf.parallel_sequences do
     local rows = math.min(i+self.conf.parallel_sequences, dataset:size() + 1) - i
     local inputs = torch.Tensor(rows, self.input_size)
-    local targets = torch.Tensor(rows, dataset[1][2]:size(1))
+    local targets = torch.Tensor(rows, 1)
     local index = 1
     for y=i, math.min(i+self.conf.parallel_sequences-1, dataset:size()) do
-      inputs[index] = dataset[y][1]
-      targets[index] = dataset[y][2]
+      inputs[index] = dataset[1][y]
+      targets[index] = dataset[2][y]
       index = index + 1
     end
     targets = targets:squeeze()
