@@ -24,8 +24,19 @@ end
 -- goes through the whole dataset(if limit not specified) and gather number of rows and columns
 function Dataset:getSize(f, limit)
   local iter = self:dataIter(f, limit)
+  local s_rows = false
+  local s_cols = false
   local rows = 0
   local cols = 0
+  s_rows, rows = pcall(f.read, "/rows")
+  s_cols, cols = pcall(f.read, "/cols")
+  if s_rows and s_cols then
+    if limit and limit < rows[1] then
+      return limit, cols[1]
+    else
+      return rows[1], cols[1]
+    end
+  end
   local first = true
   while true do
     local item = iter()
