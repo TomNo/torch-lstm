@@ -171,16 +171,17 @@ function NeuralNetwork:train(dataset, cv_dataset)
     end
 
     for i=1, dataset.rows, self.conf.parallel_sequences do
-      local b_size = math.min(i+self.conf.parallel_sequences - 1, dataset.rows)
+      local b_size = math.min(i+self.conf.parallel_sequences, dataset.rows + 1) - i
       local inputs = torch.Tensor(b_size, dataset.cols)
       local labels = torch.Tensor(b_size)
       local index = 1
       -- TODO here should be no copying
-      for y=i, b_size do
+      for y=i, i + b_size -1 do
         inputs[index] = dataset.features[shuffle[y]]
         labels[index] = dataset.labels[shuffle[y]]
         index = index + 1
       end
+      print(labels)
       labels = labels:squeeze()
       if cudaEnabled then
         labels = labels:cuda()
