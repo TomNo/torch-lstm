@@ -5,13 +5,6 @@ require 'optim'
 
 torch.setdefaulttensortype('torch.FloatTensor')
 
-loadCuda = function()
-  require 'cutorch'
-  require 'cunn'
-end
---
-cudaEnabled = pcall(loadCuda)
-
 -- Firt try to conver to number, then bool otherwise string is returned
 -- TODO this can be pretty messy if something goes wrong -> terrible debugging
 function parseConfigOption(val)
@@ -62,11 +55,26 @@ function NeuralNetwork:init()
   self.output_size = self.desc.layers[#self.desc.layers-1].size
   self.input_size = self.desc.layers[1].size
   self.model = nn.Sequential()
-  self:_createLayers()
   self:_parseConfig(self.config_file)
   if self.conf.cuda then
-    cudaEnabled = (self.conf.cuda == 1)
+    -- load cuda if config says so
+    if self.conf.cuda == 1 then
+      local loadCuda = function()
+                   require 'cutorch'
+                   require 'cunn'
+                 end
+      local cudaEnabled = pcall(loadCuda)
+      if not cudaEnabled then error("Could not load cuda.") end
+      self.conf.cuda = true
+    else
+      self.conf.cuda = false
+    end
   end
+  self:_createLayers()
+  local allocator = torch.Tensor
+  if self.conf.cuda then allocator = torch.CudaTensor end
+  self.inputs = allocator(self.conf.parallel_sequences, self.input_size)
+  self.labels = allocator(self.conf.parallel_sequences)
 end
 
 -- Parse configuration file, every line consist of key = value
@@ -103,7 +111,7 @@ function NeuralNetwork:_createLayers()
     end
     if layer.type == NeuralNetwork.MULTICLASS_CLASSIFICATION then
       self.criterion = nn.ClassNLLCriterion()
-      if cudaEnabled then
+      if self.conf.cuda then
         self.criterion = self.criterion:cuda()
       end
     else
@@ -111,7 +119,7 @@ function NeuralNetwork:_createLayers()
     end
     end
   end
-  if cudaEnabled then
+  if self.conf.cuda then
     self.model = self.model:cuda()
   end
   local params, g_p = self.model:getParameters()
@@ -146,7 +154,7 @@ end
 
 --TODO add crossvalidation somehow??
 function NeuralNetwork:train(dataset, cv_dataset)
-  if cudaEnabled then
+  if self.conf.cuda then
     print("Training on GPU.")
   else
     print("Training on CPU.")
@@ -163,7 +171,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
   for epoch=1, self.conf.max_epochs do
     print('==> doing epoch ' .. epoch .. ' on training data.')
     local time = sys.clock()
-    local shuffle
+    local shuffle = nil
     if self.conf.shuffle_sequences == true then
       shuffle = torch.randperm(dataset.rows)
     else
@@ -171,21 +179,13 @@ function NeuralNetwork:train(dataset, cv_dataset)
     end
 
     for i=1, dataset.rows, self.conf.parallel_sequences do
-      local b_size = math.min(i+self.conf.parallel_sequences, dataset.rows + 1) - i
-      local inputs = torch.Tensor(b_size, dataset.cols)
-      local labels = torch.Tensor(b_size)
+      local b_size = self:_setActualBatchSize(i, dataset)
       local index = 1
-      -- TODO here should be no copying
+      -- TODO cannot be copied because of shuffle
       for y=i, i + b_size -1 do
-        inputs[index] = dataset.features[shuffle[y]]
-        labels[index] = dataset.labels[shuffle[y]]
+        self.inputs[index] = dataset.features[shuffle[y]]
+        self.labels[index] = dataset.labels[shuffle[y]]
         index = index + 1
-      end
-      print(labels)
-      labels = labels:squeeze()
-      if cudaEnabled then
-        labels = labels:cuda()
-        inputs = inputs:cuda()
       end
       local feval = function(x)
         collectgarbage()
@@ -196,9 +196,9 @@ function NeuralNetwork:train(dataset, cv_dataset)
 
         -- reset gradients
         self.m_grad_params:zero()
-        local outputs = self.model:forward(inputs)
-        local err = self.criterion:forward(outputs, labels)
-        self.model:backward(inputs, self.criterion:backward(outputs, labels))
+        local outputs = self.model:forward(self.inputs)
+        local err = self.criterion:forward(outputs, self.labels)
+        self.model:backward(self.inputs, self.criterion:backward(outputs, self.labels))
 
         -- normalize gradients and error
 --        self.m_grad_params:div(inputs:nElement())
@@ -227,21 +227,26 @@ function NeuralNetwork:forward(dataset)
    "Dataset input does not match first layer size.")
   local outputs = torch.Tensor(dataset.rows, self.output_size)
   for i=1, dataset.rows, self.conf.parallel_sequences do
-    local rows = math.min(i+self.conf.parallel_sequences, dataset.rows + 1) - i
-    local inputs = torch.Tensor(rows, dataset.cols)
-    local index = 1
-    for y=i, math.min(i+self.conf.parallel_sequences-1, dataset.rows) do
-      inputs[index] = dataset.features[y]
-      index = index + 1
-    end
-    if cudaEnabled then
-      inputs = inputs:cuda()
-    end
-    local labels = self.model:forward(inputs)
+    local rows = self:_setActualBatchSize(i, dataset)
+    self.inputs:copy(dataset.features[{{i, i+rows-1}, {}}])
+    local labels = self.model:forward(self.inputs)
     outputs[{{i, i+rows - 1},{}}]:copy(labels) -- TODO there could also be just = labels:float()
   end
   collectgarbage()
   return outputs
+end
+
+-- calculates actual minibatch size and resize self.inputs and self.labels
+-- return mini batch size
+function NeuralNetwork:_setActualBatchSize(i, ds)
+  local rows = math.min(i+self.conf.parallel_sequences, ds.rows + 1) - i
+  if self.inputs:size(1) ~= rows then
+    self.inputs:resize(rows, self.input_size)
+  end
+  if ds.labels and self.labels:size(1) ~= rows then
+    self.labels:resize(rows)
+  end
+  return rows
 end
 
 function NeuralNetwork:test(dataset)
@@ -249,25 +254,14 @@ function NeuralNetwork:test(dataset)
   local g_error = 0
   local c_error = 0
   for i=1, dataset.rows, self.conf.parallel_sequences do
-    local rows = math.min(i+self.conf.parallel_sequences, dataset.rows + 1) - i
-    local inputs = torch.Tensor(rows, self.input_size)
-    local targets = torch.Tensor(rows, 1)
-    local index = 1
-    for y=i, math.min(i+self.conf.parallel_sequences-1, dataset.rows) do
-      inputs[index] = dataset.features[y]
-      targets[index] = dataset.labels[y]
-      index = index + 1
-    end
-    targets = targets:squeeze()
-    if cudaEnabled then
-      inputs = inputs:cuda()
-      targets = targets:cuda()
-    end
-    local labels = self.model:forward(inputs)
-    c_error = c_error + self.criterion(labels, targets)
-    for c=1, labels:size(1) do
-      local _, l_max =  labels[c]:max(1)
-      if l_max[1] ~= targets[c] then
+    local rows = self:_setActualBatchSize(i, dataset)
+    self.inputs:copy(dataset.features[{{i, i+rows-1}, {}}])
+    self.labels:copy(dataset.labels[{{i, i+rows-1}}])
+    local o_labels = self.model:forward(self.inputs)
+    c_error = c_error + self.criterion(o_labels, self.labels)
+    for c=1, o_labels:size(1) do
+      local _, l_max =  o_labels[c]:max(1)
+      if l_max[1] ~= self.labels[c] then
         g_error = g_error + 1
       end    
     end
