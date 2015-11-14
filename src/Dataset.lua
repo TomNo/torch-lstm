@@ -69,6 +69,7 @@ function TrainDs:get(limit)
   local o_cols = 0
   o_rows, o_cols = self:getSize(f, limit)
   local labels = f:read("labels"):partial({1, o_rows})
+  labels:add(1) -- lua indexing stars from 1
   local features = f:read("features"):partial({1, o_rows}, {1, o_cols})
   local o_data = {["features"]=features, ["labels"]=labels}
   o_data.size = function() return o_rows end
