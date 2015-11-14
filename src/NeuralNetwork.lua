@@ -151,7 +151,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
   else
     print("Training on CPU.")
   end
-  assert(dataset[1][1]:size(1) == self.input_size,
+  assert(dataset.cols == self.input_size,
    "Dataset input does not fit first layer size.")
   local opt_params = {
     learningRate = self.conf.learning_rate,
@@ -165,20 +165,20 @@ function NeuralNetwork:train(dataset, cv_dataset)
     local time = sys.clock()
     local shuffle
     if self.conf.shuffle_sequences == true then
-      shuffle = torch.randperm(dataset:size())
+      shuffle = torch.randperm(dataset.rows)
     else
-      shuffle = torch.range(1, dataset:size())
+      shuffle = torch.range(1, dataset.rows)
     end
 
-    for i=1, dataset:size(), self.conf.parallel_sequences do
-      local b_size = math.min(i+self.conf.parallel_sequences - 1, dataset:size())
-      local inputs = torch.Tensor(b_size, dataset[1][1]:size(1))
+    for i=1, dataset.rows, self.conf.parallel_sequences do
+      local b_size = math.min(i+self.conf.parallel_sequences - 1, dataset.rows)
+      local inputs = torch.Tensor(b_size, dataset.cols)
       local labels = torch.Tensor(b_size)
       local index = 1
       -- TODO here should be no copying
       for y=i, b_size do
-        inputs[index] = dataset[1][shuffle[y]]
-        labels[index] = dataset[2][shuffle[y]]
+        inputs[index] = dataset.features[shuffle[y]]
+        labels[index] = dataset.labels[shuffle[y]]
         index = index + 1
       end
       labels = labels:squeeze()
@@ -222,15 +222,15 @@ function NeuralNetwork:train(dataset, cv_dataset)
 end
 
 function NeuralNetwork:forward(dataset)
-  assert(dataset[1][1]:size(1) == self.input_size,
+  assert(dataset.cols == self.input_size,
    "Dataset input does not match first layer size.")
-  local outputs = torch.Tensor(dataset:size(), self.output_size)
-  for i=1, dataset:size(), self.conf.parallel_sequences do
-    local rows = math.min(i+self.conf.parallel_sequences, dataset:size() + 1) - i
-    local inputs = torch.Tensor(rows, dataset[1][1]:nElement())
+  local outputs = torch.Tensor(dataset.rows, self.output_size)
+  for i=1, dataset.rows, self.conf.parallel_sequences do
+    local rows = math.min(i+self.conf.parallel_sequences, dataset.rows + 1) - i
+    local inputs = torch.Tensor(rows, dataset.cols)
     local index = 1
-    for y=i, math.min(i+self.conf.parallel_sequences-1, dataset:size()) do
-      inputs[index] = dataset[1][y]
+    for y=i, math.min(i+self.conf.parallel_sequences-1, dataset.rows) do
+      inputs[index] = dataset.features[y]
       index = index + 1
     end
     if cudaEnabled then
@@ -244,17 +244,17 @@ function NeuralNetwork:forward(dataset)
 end
 
 function NeuralNetwork:test(dataset)
-  assert(dataset[1][1]:size(1) == self.input_size, "Dataset inputs does not match first layer size.")
+  assert(dataset.cols == self.input_size, "Dataset inputs does not match first layer size.")
   local g_error = 0
   local c_error = 0
-  for i=1, dataset:size(), self.conf.parallel_sequences do
-    local rows = math.min(i+self.conf.parallel_sequences, dataset:size() + 1) - i
+  for i=1, dataset.rows, self.conf.parallel_sequences do
+    local rows = math.min(i+self.conf.parallel_sequences, dataset.rows + 1) - i
     local inputs = torch.Tensor(rows, self.input_size)
     local targets = torch.Tensor(rows, 1)
     local index = 1
-    for y=i, math.min(i+self.conf.parallel_sequences-1, dataset:size()) do
-      inputs[index] = dataset[1][y]
-      targets[index] = dataset[2][y]
+    for y=i, math.min(i+self.conf.parallel_sequences-1, dataset.rows) do
+      inputs[index] = dataset.features[y]
+      targets[index] = dataset.labels[y]
       index = index + 1
     end
     targets = targets:squeeze()
@@ -272,7 +272,7 @@ function NeuralNetwork:test(dataset)
     end
   end
   collectgarbage()
-  return (g_error / dataset:size()) * 100, c_error
+  return (g_error / dataset.rows) * 100, c_error
 end
 
 function NeuralNetwork:saveModel(filename)

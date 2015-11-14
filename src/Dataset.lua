@@ -70,10 +70,10 @@ function TrainDs:get(limit)
   o_rows, o_cols = self:getSize(f, limit)
   local labels = f:read("labels"):partial({1, o_rows})
   local features = f:read("features"):partial({1, o_rows}, {1, o_cols})
-  local o_data = {[1]=features, [2]=labels}
+  local o_data = {["features"]=features, ["labels"]=labels}
   o_data.size = function() return o_rows end
-  o_data.rows = o_data.size 
-  o_data.cols = function() return o_cols end
+  o_data.rows = o_rows
+  o_data.cols = o_cols
   print("Dataset loaded.")
   f:close()
   return o_data
@@ -133,10 +133,10 @@ function TestDs:get(limit)
       table.insert(tags, {tag, rows})
     end      
   end 
-  local o_data = {[1]=features}
+  local o_data = {["features"]=features}
   o_data.size = function() return o_rows end
-  o_data.rows = o_data.size 
-  o_data.cols = function() return o_cols end
+  o_data.rows = o_rows
+  o_data.cols = o_cols
   o_data.tags = tags
   print("Dataset loaded.")
   f:close()
