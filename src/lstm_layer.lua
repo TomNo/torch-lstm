@@ -14,7 +14,12 @@ local Lstm, parent = torch.class('Lstm', 'nn.Module')
 local BiLstm, b_parent = torch.class('BiLstm', 'Lstm')
 
 
-function Lstm:__init(inputSize, outputSize)
+function Lstm:__init(inputSize, outputSize, b_size, hist)
+  parent.__init(self)
+  self.batch_size = b_size
+  self.history_size = hist -- history size
+  self.outputSize = outputSize
+  self.c_states = torch.Tensor() -- history of cell states
   --module for computing all input activations
   local a_count = 4 * outputSize 
   local p_count = 2 * outputSize
@@ -76,21 +81,47 @@ function Lstm:__init(inputSize, outputSize)
   cell_acts:add(nn.SelectTable(1))
   self.model:add(cell_acts)
   self.model:add(nn.ConcatTable():add(nn.Sequential():add(nn.NarrowTable(1,2)):add(nn.CMulTable())):add(nn.SelectTable(1)))
+  -- result is <output, cell states>
+  
+  -- copies of 'step' module
+  self.steps = {self.model}
+  for i=2, hist do
+    table.insert(self.steps, self.model:clone('weight','bias'))
+  end
 end
 
 function Lstm:updateOutput(input)
-  local i_acts = self.a_i_acts
-
+  self.output:resize(self.history_size * self.batch_size, self.outputSize)
+  self.c_states:resize(self.history_size * self.batch_size, self.outputSize)
+  local i_acts = self.a_i_acts:forward(input)
+  -- do first step manually, set previous output and previous cell state to zeros
+  local z_tensor = torch.zeros(self.batch_size, self.outputSize)
+  print(i_acts:size())
+  self.model:forward({i_acts[{{1, self.batch_size}, {}}], z_tensor}, z_tensor)
+  self.output[{{1, self.batch_size}, {}}]:copy(self.model.output[1])
+  for i=2,self.history_size do
+    local p_output = self.steps[i-1]
+    local step = self.steps[i]
+    local s = (i-1)*self.batch_size + 1
+    local e = (i)*self.batch_size
+    local t_i_acts = i_acts[{{s, e},{}}]
+    step:forward({{i_acts, p_output[1]}, p_output[2]})
+    self.output[{{s,e},{}}]:copy(step.output[1])
+  end
+  return self.output
 end
 
 function Lstm:testMe()
-  print(self.model)
-  print(self.model({{self.a_i_acts(torch.randn(10)), torch.randn(10)}, torch.randn(10)}))
-
+--  print(self.model)
+--  print(self.model({{self.a_i_acts(torch.randn(10)), torch.randn(10)}, torch.randn(10)}))
+--  print(self.output)
+  a,b = self.model:getParameters()
+  print(a:nElement())
+  print(b:nElement())
 end
 
-a = Lstm.new(10,10)
-a:testMe()
+a = Lstm.new(120, 120, 16, 500)
+a:forward(torch.randn(16 * 500, 120))
 
 --function Lstm:__init(inputSize, outputSize)
 --  local m_batch_size = 0
