@@ -19,8 +19,8 @@ net:init()
 
 -- mnist testing
 geometry = {32,32}
-nbTrainingPatches = 5000
-nbTestingPatches = 1000
+nbTrainingPatches = 60000
+nbTestingPatches = 10000
 trainData = mnist.loadTrainSet(nbTrainingPatches, geometry)
 trainData:normalizeGlobal(mean, std)
 
@@ -29,33 +29,41 @@ testData = mnist.loadTestSet(nbTestingPatches, geometry)
 testData:normalizeGlobal(mean, std)
 --
 --
-test_dataset = {}
+train_features = torch.Tensor(nbTrainingPatches, 32*32)
+test_features = torch.Tensor(nbTestingPatches, 32*32)
+train_labels = torch.Tensor(nbTrainingPatches)
+test_labels = torch.Tensor(nbTestingPatches)
+
 local c_error = 0
 local g_error = 0
 for i=1,testData:size() do
   local label = testData[i][2]
   local _, m = label:max(1)
-  test_dataset[i] = {[1]=testData[i][1]:view(testData[i][1]:nElement()), [2]=m}
+  test_features[i] = testData[i][1]:view(testData[i][1]:nElement())
+  test_labels[i] = m
 end
 
-function test_dataset:size()
-  return #test_dataset
-end
-g_error, c_error = net:test(test_dataset)
-print("Error rate is: " .. g_error .. "%.")
-
-dataset = {}
 for i=1,trainData:size() do
   local label = trainData[i][2]
   local _, m = label:max(1)
-  dataset[i] = {[1]=trainData[i][1]:view(trainData[i][1]:nElement()), [2]=m}
+  train_features[i] = trainData[i][1]:view(trainData[i][1]:nElement())
+  train_labels[i] = m
 end
 
-function dataset:size()
-  return #dataset
-end
+test_dataset = {["features"]=test_features, ["labels"]=test_labels}
+test_dataset.size = function() return nbTrainingPatches end
+test_dataset.cols = 1024
+test_dataset.rows = 10000
 
-net:train(dataset)
+train_dataset = {["features"]=train_features, ["labels"]=train_labels}
+train_dataset.size = function() return nbTestingPatches end
+train_dataset.cols = 1024
+train_dataset.rows = 60000
+
+g_error, c_error = net:test(test_dataset)
+print("Error rate is: " .. g_error .. "%.")
+
+net:train(train_dataset)
 
 g_error, c_error = net:test(test_dataset)
 print(net.model)
