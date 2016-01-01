@@ -1,0 +1,33 @@
+{
+    "layers": [
+        {
+            "size": 40,
+            "name": "fbank",
+            "type": "input"
+        },
+        {
+            "size": 256,
+            "name": "blstm0",
+            "bias": 1.0,
+            "type": "blstm"
+        },
+        {
+            "size": 256,
+            "name": "blstm1",
+            "bias": 1.0,
+            "type": "blstm"
+        },
+ 
+        {
+            "size": 1940,
+            "name": "output",
+            "bias": 1.0,
+            "type": "softmax"
+        },
+        {
+            "size": 1940,
+            "name": "postoutput",
+            "type": "multiclass_classification"
+        }
+    ]
+}
