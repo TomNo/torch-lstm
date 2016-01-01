@@ -11,6 +11,7 @@ function Lstm:__init(inputSize, layerSize, hist)
   parent.__init(self)
   self.p = torch.Tensor(1)
   self.batch_size = 0
+  self.inputSize = inputSize
   self.history_size = hist -- history size
   self.layerSize = layerSize
   self.a_i_acts = nil -- input activations
@@ -131,9 +132,16 @@ function Lstm:getCellStates(model)
   return model:get(7).output[1]
 end
 
-a = Lstm.new(10, 20, 50)
-print(a.model)
-inp = torch.randn(16*50,10)
-output = a(inp)
-a:backward(inp, torch.randn(16*50, 20))
+function Lstm:__tostring__()
+  return torch.type(self) ..
+      string.format('(%d -> %d)', self.inputSize, self.layerSize)
+end
+
+return Lstm
+
+--a = Lstm.new(10, 20, 50)
+--print(a.model)
+--inp = torch.randn(16*50,10)
+--output = a(inp)
+--a:backward(inp, torch.randn(16*50, 20))
 

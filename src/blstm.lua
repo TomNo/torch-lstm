@@ -3,21 +3,21 @@ require 'cutorch'
 require 'nn'
 require 'lstm'
 
+
 local Blstm, parent = torch.class('Blstm', 'nn.Container')
 
 --just spawn two lstms that will process output in oposite direction
 
-function Blstm:__init(inputSize, layerSize, b_size, hist)
-  assert(inputSize % 2 == 0, "Layer must have even count of neurons.")
+function Blstm:__init(inputSize, layerSize, hist)
+  assert(layerSize % 2 == 0, "Layer must have even count of neurons.")
   parent.__init(self)
   local i_size = inputSize / 2;
   local o_size = layerSize / 2;
   self.layerSize = layerSize
-  self.intputSize = inputSize
-  self.batch_size = b_size
+  self.inputSize = inputSize
   self.history_size = hist
-  self.b_lstm = lstm.Lstm.new(i_size, o_size, b_size, hist)
-  self.f_lstm = lstm.Lstm.new(i_size, o_size, b_size, hist)
+  self.b_lstm = Lstm.new(i_size, o_size, hist)
+  self.f_lstm = Lstm.new(i_size, o_size, hist)
   self.modules = {self.f_lstm, self.b_lstm}
   self.r_input = torch.Tensor()
 end
@@ -46,7 +46,14 @@ function Blstm:updateOutput(input)
   return self.output  
 end
 
---a = Lstm.new(10, 20, 16, 50)
+function Blstm:__tostring__()
+  return torch.type(self) ..
+      string.format('(%d -> %d)', self.inputSize, self.layerSize)
+end
+
+
+return Blstm
+--a = Blstm.new(10, 20, 16, 50)
 --print(a.model)
 --inp = torch.randn(16*50,10)
 --output = a(inp)
