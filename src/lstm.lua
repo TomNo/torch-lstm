@@ -1,5 +1,4 @@
 require 'torch'
-require 'cutorch'
 require 'nn'
 
 local Lstm, parent = torch.class('Lstm', 'nn.Container')
@@ -99,6 +98,7 @@ function Lstm:updateGradInput(input, gradOutput)
   local l_step = self.modules[#self.modules]
   l_step:backward(inp, tmp_g)
   self.g_output[{interval, {}}]:copy(l_step.gradInput[1][1]) -- error for the next layer
+  local p_grad = z_tensor:clone()
   local counter = 2
   for i=1, #self.modules -2 do
     local c = #self.modules - i
@@ -106,8 +106,8 @@ function Lstm:updateGradInput(input, gradOutput)
     local p_step = self.modules[c+1]
     interval = {size - counter * self.batch_size +1, size - (counter -1) * self.batch_size}
     local inp = {{self.a_i_acts[{interval,{}}], p_step.output}, self:getCellStates(p_step)}
-    local i_grad = gradOutput[{interval, {}}]:add(p_step.gradInput[1][2]) -- propagate error from previous time step
-    p_step.gradInput[1][2]:zero() -- gradient accumulation should not happen in here
+    local i_grad = gradOutput[{interval, {}}]:add(p_step.gradInput[1][2] -p_grad) -- propagate error from previous time step
+    p_grad:copy(p_step.gradInput[1][2])
     step:backward(inp, i_grad) 
     self.g_output[{interval, {}}]:copy(step.gradInput[1][1])
     counter = counter + 1
@@ -163,11 +163,11 @@ end
 --a:training() --evaluate()
 --_,b = a:getParameters()
 --output = a(inp)
---
---a:backward(inp, torch.randn(16*50, 20))
---a:backward(inp, torch.randn(16*50, 20))
---a:backward(inp, torch.randn(16*50, 20))
---a:backward(inp, torch.randn(16*50, 20))
+--err = torch.randn(16*50, 20)
+--a:backward(inp, err)
+--a:backward(inp, err)
+--a:backward(inp, err)
+--a:backward(inp, err)
 return Lstm
 
 
