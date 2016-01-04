@@ -67,6 +67,7 @@ function TrainSeqDs:getSeq(index)
 end
 
 -- Sequential training dataset end
+
 function Dataset:__init(filename)
   self.filename = filename
 end
