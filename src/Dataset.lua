@@ -6,8 +6,67 @@ torch.setdefaulttensortype('torch.FloatTensor')
 local Dataset = torch.class('Dataset')
 local TrainDs, parentTr = torch.class('TrainDs', 'Dataset')
 local TestDs, parentTest = torch.class('TestDs', 'Dataset')
+local TrainSeqDs = torch.class('TrainSeqDs')
 
+local SEQ_SIZES = "seq_sizes"
+local LABELS = "labels"
+local FEATURES = "features"
+local ROWS = "rows"
+local COLS = "cols"
 
+-- Sequential dataset used for training
+function TrainSeqDs:__init(filename)
+  self.filename = filename
+  self.f = hdf5.open(self.filename)
+  self._readSize()
+  self._readSeqSizes()
+  self._genIntervals()
+end
+
+function TrainSeqDs:_readSeqSizes()
+  local status, seq_sizes = pcall(f.read, f, SEQ_SIZES)
+  if status then
+    self.seq_sizes = seq_sizes
+  else
+    error("Could not read sequence sizes.")
+  end
+end
+
+function TrainSeqDs:_genIntervals()
+    self.intervals = {}
+    local acc = 0
+    for i=1, self.seq_sizes.size(1) do
+      acc = acc + self.seq_sizes[i]
+      table.update(self.intervals, acc)
+    end
+end
+
+function TrainSeqDs:_readSize()
+  local s_rows, rows = pcall(f.read, f, ROWS)
+  local s_cols, cols = pcall(f.read, f, COLS)
+  local rows = rows:all()
+  local cols = cols:all()
+  if s_rows and s_cols then
+    self.rows = rows[1]
+    self.cols =  cols[1]
+  else
+    error("Could not read size of the dataset.")
+  end
+end
+
+function TrainSeqDs:getSeq(index)
+  local s_index = 1
+  local e_index = self.intervals[index]
+  if index ~= 1 then
+    s_index = self.indervals[index-1] + 1
+  end
+  local interval = {s_index, e_index}
+  local data = self.f:read("features"):partial(interval)
+  local labels = self.f:read("labels"):partial(interval)
+  return data, labels
+end
+
+-- Sequential training dataset end
 function Dataset:__init(filename)
   self.filename = filename
 end
@@ -59,7 +118,7 @@ function TrainDs:__init(filename)
 end
 
 function TrainDs:get(limit)
-    if limit then
+  if limit then
     print("Loading training dataset with limit " .. limit .. " from file " .. self.filename)
   else
     print("Loading training dataset from file " .. self.filename)

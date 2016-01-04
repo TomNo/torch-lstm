@@ -6,19 +6,19 @@
             "type": "input"
         },
         {
-            "size": 2048,
+            "size": 1024,
             "name": "feedforward_tanh",
             "bias": 1.0,
             "type": "feedforward_tanh"
         },
         {
-            "size": 2048,
+            "size": 512,
             "name": "feedforward_tanh",
             "bias": 1.0,
             "type": "feedforward_tanh"
         },
         {
-            "size": 2048,
+            "size": 128,
             "name": "feedforward_tanh",
             "bias": 1.0,
             "type": "feedforward_tanh"

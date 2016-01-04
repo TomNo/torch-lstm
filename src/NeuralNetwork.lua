@@ -1,7 +1,12 @@
 require 'torch'
 require 'nn'
 require 'json'
+require 'lstm'
+require 'blstm'
 require 'optim'
+
+--TODO bptt?
+--TODO gradiend cliping
 
 torch.setdefaulttensortype('torch.FloatTensor')
 
@@ -140,9 +145,9 @@ function NeuralNetwork:_addLayer(layer, p_layer)
     self.model:add(nn.Linear(p_layer.size, layer.size))
     self.model:add(nn.ReLU())
   elseif layer.type == NeuralNetwork.LSTM then
-    error("Lstm cell is not supported yet.")
+    self.model:add(Lstm.new(p_layer.size, layer.size, self.conf.truncate_seq))
   elseif layer.type == NeuralNetwork.BLSTM then
-    error("Blstm cell is not supported yet.")
+    self.model:add(Blstm.new(p_layer.size, layer.size, self.conf.truncate_seq))
   elseif layer.type == NeuralNetwork.SOFTMAX then
     --    self.model:add(nn.Add(layer.bias))
     self.model:add(nn.Linear(p_layer.size, layer.size))
@@ -167,7 +172,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
     momentum = self.conf.momentum,
     learningRateDecay = self.conf.learning_rate_decay
   }
-  self.model:training() -- not sure that it is necessary
+  self.model:training()
   for epoch=1, self.conf.max_epochs do
     print('==> doing epoch ' .. epoch .. ' on training data.')
     local time = sys.clock()
@@ -214,10 +219,10 @@ function NeuralNetwork:train(dataset, cv_dataset)
     if not self.conf.validate_every or epoch % self.conf.validate_every == 0 then
       local g_error,  c_error= self:test(dataset)
       print("Error on training set is: " .. g_error .. "% " .. c_error)
-      if cv_dataset then
-        local cv_g_error,  cv_c_error= self:test(cv_dataset)
-        print("Error on cv set set is: " .. cv_g_error .. "% " .. cv_c_error)
-      end
+--      if cv_dataset then
+--        local cv_g_error,  cv_c_error= self:test(cv_dataset)
+--        print("Error on cv set set is: " .. cv_g_error .. "% " .. cv_c_error)
+--      end
     end
   end -- epoch
 end
@@ -225,6 +230,7 @@ end
 function NeuralNetwork:forward(dataset)
   assert(dataset.cols == self.input_size,
    "Dataset input does not match first layer size.")
+  self.model:evaluate()
   local outputs = torch.Tensor(dataset.rows, self.output_size)
   for i=1, dataset.rows, self.conf.parallel_sequences do
     local rows = self:_setActualBatchSize(i, dataset)

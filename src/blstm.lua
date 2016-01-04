@@ -11,20 +11,19 @@ local Blstm, parent = torch.class('Blstm', 'nn.Container')
 function Blstm:__init(inputSize, layerSize, hist)
   assert(layerSize % 2 == 0, "Layer must have even count of neurons.")
   parent.__init(self)
-  local i_size = inputSize / 2;
   local o_size = layerSize / 2;
   self.layerSize = layerSize
   self.inputSize = inputSize
   self.history_size = hist
-  self.b_lstm = Lstm.new(i_size, o_size, hist)
-  self.f_lstm = Lstm.new(i_size, o_size, hist)
+  self.b_lstm = Lstm.new(inputSize, o_size, hist)
+  self.f_lstm = Lstm.new(inputSize, o_size, hist)
   self.modules = {self.f_lstm, self.b_lstm}
   self.r_input = torch.Tensor()
 end
 
 function Blstm:updateGradInput(input, gradOutput)
-  local f_gradOutput = gradOutput[{{1, #gradOutput/2}, {}}]
-  local b_gradOutput = gradOutput[{{#gradOutput/2, #gradOutput}, {}}]
+  local f_gradOutput = gradOutput[{{}, {1, self.layerSize / 2}}]
+  local b_gradOutput = gradOutput[{{}, {self.layerSize / 2 + 1 , self.layerSize}}]
   self.gradInput:resize(self.batch_size * self.history_size, self.inputSize)
   self.f_lstm:backward(input, f_gradOutput)
   self.b_lstm:backward(self.r_input, b_gradOutput)
@@ -34,13 +33,14 @@ end
 
 function Blstm:revertInput(input)
   self.r_input:resizeAs(input)
-  for i=1,#input do
-    self.r_input[i] = input[#input + 1 - i]
+  for i=1,input:size(1) do
+    self.r_input[i] = input[input:size(1) + 1 - i]
   end
   return self.r_input
 end
 
 function Blstm:updateOutput(input)
+  self.batch_size = input:size(1) / self.history_size
   self:revertInput(input)
   self.output = torch.cat(self.f_lstm:forward(input), self.b_lstm:forward(self.r_input))
   return self.output  
@@ -51,11 +51,14 @@ function Blstm:__tostring__()
       string.format('(%d -> %d)', self.inputSize, self.layerSize)
 end
 
-
-return Blstm
---a = Blstm.new(10, 20, 16, 50)
+--a = Lstm.new(10, 20, 50)
+--a:training()
 --print(a.model)
 --inp = torch.randn(16*50,10)
+----a:evaluate()
 --output = a(inp)
 --a:backward(inp, torch.randn(16*50, 20))
+
+return Blstm
+
 

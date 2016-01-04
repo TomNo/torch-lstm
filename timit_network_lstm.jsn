@@ -7,12 +7,12 @@
         },
         {
             "size": 256,
-            "name": "blstm0",
+            "name": "blstm1",
             "bias": 1.0,
             "type": "blstm"
         },
         {
-            "size": 256,
+            "size": 128,
             "name": "blstm1",
             "bias": 1.0,
             "type": "blstm"
