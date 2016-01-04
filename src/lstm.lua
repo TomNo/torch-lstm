@@ -7,6 +7,31 @@ local Lstm, parent = torch.class('Lstm', 'nn.Container')
 --TODO resizing array should be optimized
 --TODO biases arent correct in gates
 
+local LstmStep, _ = torch.class('LstmStep', 'nn.Sequential')
+
+local CELL_MODULE_INDEX = 8
+
+-- It is necessary to supply gradoutput and cellGrads from next timestemp
+function LstmStep:backward(input, gradOutput, pGradOutput, pCellGrad, scale)
+   gradOutput:add(pGradOutput)
+   scale = scale or 1
+   local currentGradOutput = gradOutput
+   local currentModule = self.modules[#self.modules]
+   for i=#self.modules-1,1,-1 do
+      local previousModule = self.modules[i]
+      if i == CELL_MODULE_INDEX then -- we should add previous cell errors
+        currentGradOutput[1]:add(pCellGrad)
+      end
+      currentGradOutput = currentModule:backward(previousModule.output, currentGradOutput, scale)
+      currentModule.gradInput = currentGradOutput
+      currentModule = previousModule
+   end
+   currentGradOutput = currentModule:backward(input, currentGradOutput, scale)
+   self.gradInput = currentGradOutput
+   return currentGradOutput
+
+end
+
 function Lstm:__init(inputSize, layerSize, hist)
   parent.__init(self)
   self.p = torch.Tensor(1)
@@ -23,7 +48,7 @@ function Lstm:__init(inputSize, layerSize, hist)
   self.a_i_acts_module = nn.Linear(inputSize, self.a_count)
   table.insert(self.modules, self.a_i_acts_module)
   --module for computing one mini batch
-  self.model = nn.Sequential()
+  self.model = LstmStep.new()
   local i_acts = nn.Identity()
   -- all output activations
   local o_acts = nn.Linear(layerSize, self.a_count)
@@ -72,14 +97,21 @@ function Lstm:__init(inputSize, layerSize, hist)
   cell_acts:add(nn.Sequential():add(nn.SelectTable(3)))
   self.model:add(cell_acts)
   -- output of the model at this stage is <c_acts, o_acts>
-  -- scale by peephole from the cell state to output gate
+  -- scale by peephole from the cell state to output gate and apply sigmoid to output gate,
+  -- also apply squashing function to the cell states
   cell_acts = nn.ConcatTable()
   cell_acts:add(nn.Sequential():add(nn.SelectTable(1)):add(nn.Linear(layerSize, layerSize)))
   cell_acts:add(nn.SelectTable(2))
+  cell_acts:add(nn.Sequential():add(nn.SelectTable(1)):add(nn.Tanh()))
   self.model:add(cell_acts)
-  self.model:add(nn.NarrowTable(1,2)):add(nn.CMulTable())
+  -- output of the model at this stage is <output_gate peephole act, o_acts, cell_acts>
+  -- finalize the o_acts and apply sigmoid
+  local cell_acts = nn.ConcatTable():add(nn.Sequential(nn.NarrowTable(1,2)):add(nn.CAddTable()):add(nn.Sigmoid()))
+  -- just forward cell acts
+  cell_acts:add(nn.SelectTable(3))
   -- result is <output>
-
+  self.model:add(cell_acts)
+  self.model:add(nn.CMulTable())
   -- copies of 'step' module
   table.insert(self.modules, self.model)
   for i=2, hist do
@@ -96,9 +128,10 @@ function Lstm:updateGradInput(input, gradOutput)
   local tmp_g = gradOutput[{interval, {}}]
   -- first do propagation from the last module
   local l_step = self.modules[#self.modules]
-  l_step:backward(inp, tmp_g)
+  l_step:backward(inp, tmp_g, z_tensor, z_tensor)
   self.g_output[{interval, {}}]:copy(l_step.gradInput[1][1]) -- error for the next layer
-  local p_grad = z_tensor:clone()
+  local p_o_grad = z_tensor:clone()
+  local p_c_grad = z_tensor:clone()
   local counter = 2
   for i=1, #self.modules -2 do
     local c = #self.modules - i
@@ -106,9 +139,16 @@ function Lstm:updateGradInput(input, gradOutput)
     local p_step = self.modules[c+1]
     interval = {size - counter * self.batch_size +1, size - (counter -1) * self.batch_size}
     local inp = {{self.a_i_acts[{interval,{}}], p_step.output}, self:getCellStates(p_step)}
-    local i_grad = gradOutput[{interval, {}}]:add(p_step.gradInput[1][2] -p_grad) -- propagate error from previous time step
-    p_grad:copy(p_step.gradInput[1][2])
-    step:backward(inp, i_grad) 
+    -- propagate error from previous time step
+    -- gradient accumulation is going on, so it is necessary
+    -- to alway recalculate the error from previous timestamp
+    local i_o_grad = p_step.gradInput[1][2] -p_o_grad
+    local i_c_grad = p_step.gradInput[2] - p_c_grad
+    p_o_grad:copy(p_step.gradInput[1][2])
+    p_c_grad:copy(p_step.gradInput[2])
+    -- do the backward pass with error propagated from upper layer
+    -- error from previous outputs and previous cell states
+    step:backward(inp, gradOutput[{interval, {}}], i_o_grad, i_c_grad) 
     self.g_output[{interval, {}}]:copy(step.gradInput[1][1])
     counter = counter + 1
   end
@@ -159,7 +199,9 @@ function Lstm:__tostring__()
 end
 
 --a = Lstm.new(10, 20, 50)
+--print(a.model)
 --inp = torch.randn(16*50,10)
+--
 --a:training() --evaluate()
 --_,b = a:getParameters()
 --output = a(inp)
@@ -168,6 +210,7 @@ end
 --a:backward(inp, err)
 --a:backward(inp, err)
 --a:backward(inp, err)
+
 return Lstm
 
 
