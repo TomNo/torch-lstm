@@ -182,15 +182,20 @@ function NeuralNetwork:train(dataset, cv_dataset)
     else
       shuffle = torch.range(1, dataset.rows)
     end
-
-    for i=1, dataset.rows, self.conf.parallel_sequences do
-      local b_size = self:_setActualBatchSize(i, dataset)
-      local index = 1
-      -- TODO cannot be copied because of shuffle
-      for y=i, i + b_size -1 do
-        self.inputs[index] = dataset.features[shuffle[y]]
-        self.labels[index] = dataset.labels[shuffle[y]]
-        index = index + 1
+    dataset:startBatchIteration(self.conf.parallel_sequences,
+                                self.conf.truncate_seq)
+    for i=1, dataset.rows, (self.conf.parallel_sequences * self.conf.truncate_seq) do
+--      local b_size = self:_setActualBatchSize(i, dataset)
+--      local index = 1
+--      -- TODO cannot be copied because of shuffle
+--      for y=i, i + b_size -1 do
+--        self.inputs[index] = dataset.features[shuffle[y]]
+--        self.labels[index] = dataset.labels[shuffle[y]]
+--        index = index + 1
+--      end
+      self.inputs, self.labels = dataset:getBatch()
+      if self.inputs == nil then
+        break
       end
       local feval = function(x)
         collectgarbage()
@@ -204,7 +209,6 @@ function NeuralNetwork:train(dataset, cv_dataset)
         local outputs = self.model:forward(self.inputs)
         local err = self.criterion:forward(outputs, self.labels)
         self.model:backward(self.inputs, self.criterion:backward(outputs, self.labels))
-
         -- normalize gradients and error
 --        self.m_grad_params:div(inputs:nElement())
 --        err = err/inputs:nElement()
@@ -259,10 +263,17 @@ function NeuralNetwork:test(dataset)
   assert(dataset.cols == self.input_size, "Dataset inputs does not match first layer size.")
   local g_error = 0
   local c_error = 0
-  for i=1, dataset.rows, self.conf.parallel_sequences do
-    local rows = self:_setActualBatchSize(i, dataset)
-    self.inputs:copy(dataset.features[{{i, i+rows-1}, {}}])
-    self.labels:copy(dataset.labels[{{i, i+rows-1}}])
+  dataset:startBatchIteration(self.conf.parallel_sequences,
+                              self.conf.truncate_seq)
+  -- TODO refactor
+  for i=1, dataset.rows, (self.conf.parallel_sequences * self.conf.truncate_seq) do
+--    local rows = self:_setActualBatchSize(i, dataset)
+--    self.inputs:copy(dataset.features[{{i, i+rows-1}, {}}])
+--    self.labels:copy(dataset.labels[{{i, i+rows-1}}])
+    self.inputs, self.labels = dataset:getBatch()
+    if self.inputs == nil then
+      break
+    end
     local o_labels = self.model:forward(self.inputs)
     c_error = c_error + self.criterion(o_labels, self.labels)
     for c=1, o_labels:size(1) do

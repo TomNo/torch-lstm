@@ -1,6 +1,68 @@
 require 'torch'
 require 'nn'
 
+local LinearNoBias, Linear = torch.class('nn.LinearNoBias', 'nn.Linear')
+
+function LinearNoBias:__init(inputSize, outputSize)
+   nn.Module.__init(self)
+
+   self.weight = torch.Tensor(outputSize, inputSize)
+   self.gradWeight = torch.Tensor(outputSize, inputSize)
+
+   self:reset()
+end
+
+function LinearNoBias:reset(stdv)
+   if stdv then
+      stdv = stdv * math.sqrt(3)
+   else
+      stdv = 1./math.sqrt(self.weight:size(2))
+   end
+   if nn.oldSeed then
+      for i=1,self.weight:size(1) do
+         self.weight:select(1, i):apply(function()
+            return torch.uniform(-stdv, stdv)
+         end)
+      end
+   else
+      self.weight:uniform(-stdv, stdv)
+   end
+
+   return self
+end
+
+function LinearNoBias:updateOutput(input)
+   if input:dim() == 1 then
+      self.output:resize(self.weight:size(1))
+      self.output:mv(self.weight, input)
+   elseif input:dim() == 2 then
+      local nframe = input:size(1)
+      local nElement = self.output:nElement()
+      self.output:resize(nframe, self.weight:size(1))
+      if self.output:nElement() ~= nElement then
+         self.output:zero()
+      end
+      if not self.addBuffer or self.addBuffer:nElement() ~= nframe then
+         self.addBuffer = input.new(nframe):fill(1)
+      end
+      self.output:addmm(0, self.output, 1, input, self.weight:t())
+   else
+      error('input must be vector or matrix')
+   end
+
+   return self.output
+end
+
+function LinearNoBias:accGradParameters(input, gradOutput, scale)
+   scale = scale or 1
+   if input:dim() == 1 then
+      self.gradWeight:addr(scale, gradOutput, input)
+   elseif input:dim() == 2 then
+      self.gradWeight:addmm(scale, gradOutput:t(), input)
+   end
+end
+
+
 local Lstm, parent = torch.class('Lstm', 'nn.Container')
 
 --TODO there is no support for non batch mode
@@ -45,15 +107,17 @@ function Lstm:__init(inputSize, layerSize, hist)
   --module for computing all input activations
   self.a_count = 4 * layerSize
   local p_count = 2 * layerSize
+  -- set biases for all units in here -> temporary to one
   self.a_i_acts_module = nn.Linear(inputSize, self.a_count)
+  self.a_i_acts_module.bias:fill(0)
   table.insert(self.modules, self.a_i_acts_module)
   --module for computing one mini batch
   self.model = LstmStep.new()
   local i_acts = nn.Identity()
   -- all output activations
-  local o_acts = nn.Linear(layerSize, self.a_count)
+  local o_acts = LinearNoBias.new(layerSize, self.a_count)
   -- forget and input peepholes cell acts
-  local c_acts = nn.ConcatTable():add(nn.Linear(layerSize, p_count)):add(nn.Identity())
+  local c_acts = nn.ConcatTable():add(LinearNoBias.new(layerSize, p_count)):add(nn.Identity())
   -- container for summed input and output activations
   -- that is divided in half
   local io_acts = nn.Sequential()
@@ -100,13 +164,13 @@ function Lstm:__init(inputSize, layerSize, hist)
   -- scale by peephole from the cell state to output gate and apply sigmoid to output gate,
   -- also apply squashing function to the cell states
   cell_acts = nn.ConcatTable()
-  cell_acts:add(nn.Sequential():add(nn.SelectTable(1)):add(nn.Linear(layerSize, layerSize)))
+  cell_acts:add(nn.Sequential():add(nn.SelectTable(1)):add(LinearNoBias.new(layerSize, layerSize)))
   cell_acts:add(nn.SelectTable(2))
   cell_acts:add(nn.Sequential():add(nn.SelectTable(1)):add(nn.Tanh()))
   self.model:add(cell_acts)
   -- output of the model at this stage is <output_gate peephole act, o_acts, cell_acts>
   -- finalize the o_acts and apply sigmoid
-  local cell_acts = nn.ConcatTable():add(nn.Sequential(nn.NarrowTable(1,2)):add(nn.CAddTable()):add(nn.Sigmoid()))
+  local cell_acts = nn.ConcatTable():add(nn.Sequential():add(nn.NarrowTable(1,2)):add(nn.CAddTable()):add(nn.Sigmoid()))
   -- just forward cell acts
   cell_acts:add(nn.SelectTable(3))
   -- result is <output>
@@ -198,7 +262,24 @@ function Lstm:__tostring__()
       string.format('(%d -> %d)', self.inputSize, self.layerSize)
 end
 
---a = Lstm.new(10, 20, 50)
+--a = Lstm.new(1, 1, 1)
+--x,_ = a:getParameters()
+--x:fill(0.25)
+--a.a_i_acts_module.bias:fill(0)
+--print(a:forward(torch.Tensor(1,1):fill(1)))
+----print("acts")
+----print(a.a_i_acts_module.output)
+--print(a:getCellStates(a.model))
+--print(a.model:get(8).output[1])
+--print(a.model:get(8).output[2])
+--print(a.model:get(8).output[3])
+
+--print(a:getParameters())
+--a.a_i_acts_module:getparameter
+--c,_ = a:getParameters()
+--print(c)
+--print(a.a_i_acts_module)
+
 --print(a.model)
 --inp = torch.randn(16*50,10)
 --

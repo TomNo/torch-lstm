@@ -1,7 +1,7 @@
 {
     "layers": [
         {
-            "size": 40,
+            "size": 120,
             "name": "fbank",
             "type": "input"
         },
@@ -9,15 +9,8 @@
             "size": 256,
             "name": "blstm1",
             "bias": 1.0,
-            "type": "blstm"
+            "type": "lstm"
         },
-        {
-            "size": 128,
-            "name": "blstm1",
-            "bias": 1.0,
-            "type": "blstm"
-        },
- 
         {
             "size": 1940,
             "name": "output",
