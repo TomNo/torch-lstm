@@ -96,7 +96,6 @@ end
 
 function Lstm:__init(inputSize, layerSize, hist)
   parent.__init(self)
-  self.p = torch.Tensor(1)
   self.batch_size = 0
   self.inputSize = inputSize
   self.history_size = hist -- history size
@@ -109,7 +108,6 @@ function Lstm:__init(inputSize, layerSize, hist)
   local p_count = 2 * layerSize
   -- set biases for all units in here -> temporary to one
   self.a_i_acts_module = nn.Linear(inputSize, self.a_count)
-  self.a_i_acts_module.bias:fill(0)
   table.insert(self.modules, self.a_i_acts_module)
   --module for computing one mini batch
   self.model = LstmStep.new()
@@ -197,26 +195,21 @@ function Lstm:updateGradInput(input, gradOutput)
   local p_o_grad = z_tensor:clone()
   local p_c_grad = z_tensor:clone()
   local counter = 2
-  for i=1, #self.modules -2 do
+  for i=1, #self.modules - 2 do
     local c = #self.modules - i
     local step = self.modules[c]
     local p_step = self.modules[c+1]
     interval = {size - counter * self.batch_size +1, size - (counter -1) * self.batch_size}
     local inp = {{self.a_i_acts[{interval,{}}], p_step.output}, self:getCellStates(p_step)}
     -- propagate error from previous time step
-    -- gradient accumulation is going on, so it is necessary
-    -- to alway recalculate the error from previous timestamp
-    local i_o_grad = p_step.gradInput[1][2] -p_o_grad
-    local i_c_grad = p_step.gradInput[2] - p_c_grad
-    p_o_grad:copy(p_step.gradInput[1][2])
-    p_c_grad:copy(p_step.gradInput[2])
-    -- do the backward pass with error propagated from upper layer
-    -- error from previous outputs and previous cell states
-    step:backward(inp, gradOutput[{interval, {}}], i_o_grad, i_c_grad) 
+    step:backward(inp, gradOutput[{interval, {}}], p_step.gradInput[1][2], p_step.gradInput[2])
     self.g_output[{interval, {}}]:copy(step.gradInput[1][1])
     counter = counter + 1
   end
-  self.gradInput = self.a_i_acts_module:backward(input, self.g_output)
+  
+  self.a_i_acts_module:backward(input, self.g_output)
+  self.gradInput:resizeAs(self.a_i_acts_module.gradInput)
+  self.gradInput:copy(self.a_i_acts_module.gradInput)
   return self.gradInput
 end
 
@@ -261,15 +254,34 @@ function Lstm:__tostring__()
   return torch.type(self) ..
       string.format('(%d -> %d)', self.inputSize, self.layerSize)
 end
+--
+--a = Lstm.new(1, 1, 3)
+--
+--f, c = a:getParameters()
+--c:zero()
+--print(c)
+--print(a:parameters())
+--a:training()
+--x,f = a:getParameters()
 
---a = Lstm.new(1, 1, 1)
---x,_ = a:getParameters()
+--print(x:size(1),f:size(1))
+--f:zero()
+--print(f)
 --x:fill(0.25)
 --a.a_i_acts_module.bias:fill(0)
---print(a:forward(torch.Tensor(1,1):fill(1)))
+--inp = torch.Tensor(6,1):fill(1)
+--print(a:forward(inp))
+--a:backward(inp, inp)
+--print(f)
+--print(a.a_i_acts_module.gradWeight)
+--print(f)
+--print(a.gradWeight)
+
+--a:backward()
 ----print("acts")
 ----print(a.a_i_acts_module.output)
---print(a:getCellStates(a.model))
+--print(a:getCellStates(a.modules[2]))
+--print(a:getCellStates(a.modules[3]))
 --print(a.model:get(8).output[1])
 --print(a.model:get(8).output[2])
 --print(a.model:get(8).output[3])

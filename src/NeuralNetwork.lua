@@ -43,8 +43,8 @@ function NeuralNetwork:__init(params, log)
   self.output_size = nil -- size of the last layer
   self.input_size = nil  -- size of the input layer
   self.conf = {} -- configuration regarding training
-  self.m_params = nil -- model
-  self.m_grad_params = nil -- model
+  self.m_params = nil -- model params
+  self.m_grad_params = nil -- model gradients
   self.log = log  
   self.log:addTime('NeuralNetwork','%F %T')
 end
@@ -76,10 +76,8 @@ function NeuralNetwork:init()
     end
   end
   self:_createLayers()
-  local allocator = torch.Tensor
-  if self.conf.cuda then allocator = torch.CudaTensor end
-  self.inputs = allocator(self.conf.parallel_sequences, self.input_size)
-  self.labels = allocator(self.conf.parallel_sequences)
+  self.model:reset(self.conf.weights_uniform_max)
+  self.m_params, self.m_grad_params = self.model:getParameters()
 end
 
 -- Parse configuration file, every line consist of key = value
@@ -127,9 +125,6 @@ function NeuralNetwork:_createLayers()
   if self.conf.cuda then
     self.model = self.model:cuda()
   end
-  local params, g_p = self.model:getParameters()
-  self.m_params = params
-  self.m_grad_params = g_p
 end
 
 function NeuralNetwork:_addLayer(layer, p_layer)
@@ -176,15 +171,10 @@ function NeuralNetwork:train(dataset, cv_dataset)
   for epoch=1, self.conf.max_epochs do
     print('==> doing epoch ' .. epoch .. ' on training data.')
     local time = sys.clock()
-    local shuffle = nil
-    if self.conf.shuffle_sequences == true then
-      shuffle = torch.randperm(dataset.rows)
-    else
-      shuffle = torch.range(1, dataset.rows)
-    end
     dataset:startBatchIteration(self.conf.parallel_sequences,
                                 self.conf.truncate_seq)
     for i=1, dataset.rows, (self.conf.parallel_sequences * self.conf.truncate_seq) do
+    
 --      local b_size = self:_setActualBatchSize(i, dataset)
 --      local index = 1
 --      -- TODO cannot be copied because of shuffle
@@ -203,12 +193,12 @@ function NeuralNetwork:train(dataset, cv_dataset)
         if x ~= self.m_params then
           self.m_params:copy(x)
         end
-
         -- reset gradients
         self.m_grad_params:zero()
         local outputs = self.model:forward(self.inputs)
         local err = self.criterion:forward(outputs, self.labels)
-        self.model:backward(self.inputs, self.criterion:backward(outputs, self.labels))
+        local tmp = self.criterion:backward(outputs, self.labels)
+        self.model:backward(self.inputs, tmp)
         -- normalize gradients and error
 --        self.m_grad_params:div(inputs:nElement())
 --        err = err/inputs:nElement()

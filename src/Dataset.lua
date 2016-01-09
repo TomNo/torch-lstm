@@ -72,7 +72,7 @@ function TrainSeqDs:getSeq(interval)
 --  local interval = {s_index, e_index}
 --  print(s_index, e_index)
   local data = self.f_features:partial(interval, {1, self.cols})
-  local labels = self.f_labels:partial(interval)
+  local labels = self.f_labels:partial(interval):add(1)
   return data, labels
 end
 
