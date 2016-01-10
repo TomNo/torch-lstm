@@ -82,13 +82,11 @@ end
 
 -- Parse configuration file, every line consist of key = value
 -- save the config into to the self.conf
--- TODO network description file name is contained in config.cfg
 function NeuralNetwork:_parseConfig(conf_filename)
   local f = assert(io.open(conf_filename, "r"),
    "Could not open the configuration file: " .. conf_filename)
   local lines = f:lines()
   for line in lines do
-    -- :D lua support for string is only via regexs, how sad :D
     line = line:gsub("%s*", "")
     local result = line:split("=")
     self.conf[result[1]] = parseConfigOption(result[2])
@@ -144,11 +142,13 @@ function NeuralNetwork:_addLayer(layer, p_layer)
   elseif layer.type == NeuralNetwork.BLSTM then
     self.model:add(Blstm.new(p_layer.size, layer.size, self.conf.truncate_seq))
   elseif layer.type == NeuralNetwork.SOFTMAX then
-    --    self.model:add(nn.Add(layer.bias))
     self.model:add(nn.Linear(p_layer.size, layer.size))
     self.model:add(nn.LogSoftMax())
   else
     error("Unknown layer type: " .. layer.type ".")
+  end
+  if layer.dropout and layer.dropout > 0 then
+    self.model:add(nn.Dropout(layer.dropout))
   end
 end
 
@@ -172,17 +172,10 @@ function NeuralNetwork:train(dataset, cv_dataset)
     print('==> doing epoch ' .. epoch .. ' on training data.')
     local time = sys.clock()
     dataset:startBatchIteration(self.conf.parallel_sequences,
-                                self.conf.truncate_seq)
+                                self.conf.truncate_seq,
+                                self.conf.shuffle_sequences)
+    local e_error = 0
     for i=1, dataset.rows, (self.conf.parallel_sequences * self.conf.truncate_seq) do
-    
---      local b_size = self:_setActualBatchSize(i, dataset)
---      local index = 1
---      -- TODO cannot be copied because of shuffle
---      for y=i, i + b_size -1 do
---        self.inputs[index] = dataset.features[shuffle[y]]
---        self.labels[index] = dataset.labels[shuffle[y]]
---        index = index + 1
---      end
       self.inputs, self.labels = dataset:getBatch()
       if self.inputs == nil then
         break
@@ -197,26 +190,20 @@ function NeuralNetwork:train(dataset, cv_dataset)
         self.m_grad_params:zero()
         local outputs = self.model:forward(self.inputs)
         local err = self.criterion:forward(outputs, self.labels)
-        local tmp = self.criterion:backward(outputs, self.labels)
-        self.model:backward(self.inputs, tmp)
-        -- normalize gradients and error
---        self.m_grad_params:div(inputs:nElement())
---        err = err/inputs:nElement()
-
-        -- return f and df/dX
+        e_error = e_error + err
+        self.model:backward(self.inputs, self.criterion:backward(outputs, self.labels))
         return err, self.m_grad_params
       end -- feval
       optim.sgd(feval, self.m_params, opt_params)
     end -- mini batch
     collectgarbage()
     print("Epoch has taken " .. sys.clock() - time .. " seconds.")
+    print("Error on training set is: " .. e_error)
     if not self.conf.validate_every or epoch % self.conf.validate_every == 0 then
-      local g_error,  c_error= self:test(dataset)
-      print("Error on training set is: " .. g_error .. "% " .. c_error)
---      if cv_dataset then
---        local cv_g_error,  cv_c_error= self:test(cv_dataset)
---        print("Error on cv set set is: " .. cv_g_error .. "% " .. cv_c_error)
---      end
+      if cv_dataset then
+        local cv_g_error,  cv_c_error= self:test(cv_dataset)
+        print("Error on cv set set is: " .. cv_g_error .. "% " .. cv_c_error)
+      end
     end
   end -- epoch
 end
@@ -257,9 +244,6 @@ function NeuralNetwork:test(dataset)
                               self.conf.truncate_seq)
   -- TODO refactor
   for i=1, dataset.rows, (self.conf.parallel_sequences * self.conf.truncate_seq) do
---    local rows = self:_setActualBatchSize(i, dataset)
---    self.inputs:copy(dataset.features[{{i, i+rows-1}, {}}])
---    self.labels:copy(dataset.labels[{{i, i+rows-1}}])
     self.inputs, self.labels = dataset:getBatch()
     if self.inputs == nil then
       break

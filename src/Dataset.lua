@@ -64,21 +64,18 @@ function TrainSeqDs:_readSize()
 end
 
 function TrainSeqDs:getSeq(interval)
---  local s_index = 1
---  local e_index = self.intervals[index]
---  if index ~= 1 then
---    s_index = self.intervals[e_index-1] + 1
---  end
---  local interval = {s_index, e_index}
---  print(s_index, e_index)
   local data = self.f_features:partial(interval, {1, self.cols})
-  local labels = self.f_labels:partial(interval):add(1)
+  local labels = self.f_labels:partial(interval):add(1) -- lua indexes from 1
   return data, labels
 end
 
-function TrainSeqDs:startBatchIteration(b_size, h_size)
+function TrainSeqDs:startBatchIteration(b_size, h_size, shuffle)
   self.m_b_count = math.floor(self.rows / (h_size * b_size))
-  self.samples = torch.randperm(math.floor(self.rows / h_size))
+  if shuffle then
+    self.samples = torch.randperm(math.floor(self.rows / h_size))
+  else
+    self.samples = torch.range(1, math.floor(self.rows / h_size))
+  end
   self.index = 1
   self.h_size = h_size
   self.b_size = b_size
