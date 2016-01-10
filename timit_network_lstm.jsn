@@ -9,14 +9,13 @@
             "size": 512,
             "name": "output",
             "bias": 1.0,
-            "type": "lstm"
+            "type": "blstm"
         },
         {
             "size": 512,
             "name": "output1",
             "bias": 1.0,
-            "type": "lstm",
-            "dropout": 0.5
+            "type": "blstm"
         },
         {
             "size": 1940,

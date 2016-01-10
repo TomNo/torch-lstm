@@ -15,8 +15,9 @@ local ROWS = "rows"
 local COLS = "cols"
 
 -- Sequential dataset used for training
-function TrainSeqDs:__init(filename, cuda)
+function TrainSeqDs:__init(filename, cuda, load_all)
   self.filename = filename
+  self.load_all = load_all
   self.f = hdf5.open(self.filename)
   self.f_labels = self.f:read(LABELS)
   self.f_features = self.f:read(FEATURES)
@@ -29,7 +30,15 @@ function TrainSeqDs:__init(filename, cuda)
   end
   self:_readSize()
   self:_readSeqSizes()
+  if load_all then
+    self:_readAll()
+  end
 --  self:_genIntervals()
+end
+
+function TrainSeqDs:_readAll()
+  self.a_features = self.f_features:all()
+  self.a_labels = self.f_labels:all()
 end
 
 function TrainSeqDs:_readSeqSizes()
@@ -64,8 +73,16 @@ function TrainSeqDs:_readSize()
 end
 
 function TrainSeqDs:getSeq(interval)
-  local data = self.f_features:partial(interval, {1, self.cols})
-  local labels = self.f_labels:partial(interval):add(1) -- lua indexes from 1
+  local data = nil
+  local labels = nil
+  if self.load_all then
+    data = self.a_features[{interval, {1, self.cols}}]:clone()
+    labels = self.a_labels[{interval}]:clone()
+  else
+    data = self.f_features:partial(interval, {1, self.cols})
+    labels = self.f_labels:partial(interval)
+  end
+  labels:add(1) -- lua indexes from 1
   return data, labels
 end
 

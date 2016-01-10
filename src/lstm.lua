@@ -204,6 +204,8 @@ function Lstm:updateGradInput(input, gradOutput)
     -- propagate error from previous time step
     step:backward(inp, gradOutput[{interval, {}}], p_step.gradInput[1][2], p_step.gradInput[2])
     self.g_output[{interval, {}}]:copy(step.gradInput[1][1])
+--    -- acumulate error
+--    self.g_output[{interval, {}}]:add(p_step.gradInput[1][1])
     counter = counter + 1
   end
   
@@ -215,33 +217,33 @@ end
 
 function Lstm:updateOutput(input)
   -- TODO this resizing might be handled better
-  if not self.train then -- threat input as one long sequence
-    self.output:resize(input:size(1), self.layerSize)
-    self.a_i_acts = self.a_i_acts_module:forward(input)
-    self.model:forward({{self.a_i_acts[1], self.z_tensor[1]}, self.z_tensor[1]})
-    self.output[1] = self.model.output
-    for i=2, input:size(1) do
-      self.model:forward({{self.a_i_acts[i], self.model.output}, self:getCellStates(self.model)})
-      self.output[i] = self.model.output
-    end
-    return self.output
-  else -- training mode
-    self.batch_size = input:size(1) / self.history_size
-    self.output:resize(self.history_size * self.batch_size, self.layerSize)
-    self.a_i_acts = self.a_i_acts_module:forward(input)
-    local z_tensor = self.z_tensor:repeatTensor(self.batch_size, 1)
-    -- do first step manually, set previous output and previous cell state to zeros
-    self.model:forward({{self.a_i_acts[{{1, self.batch_size}, {}}], z_tensor}, z_tensor})
-    self.output[{{1, self.batch_size}, {}}]:copy(self.model.output)
-    for i= 3, #self.modules do
-      local p_step = self.modules[i-1]
-      local step = self.modules[i]
-      local interval = {(i-2)*self.batch_size + 1, (i-1)*self.batch_size}
-      local t_i_acts = self.a_i_acts[{interval,{}}]
-      step:forward({{t_i_acts, p_step.output}, self:getCellStates(p_step)})
-      self.output[{interval,{}}]:copy(step.output)
-    end
+--  if not self.train then -- threat input as one long sequence
+--    self.output:resize(input:size(1), self.layerSize)
+--    self.a_i_acts = self.a_i_acts_module:forward(input)
+--    self.model:forward({{self.a_i_acts[1], self.z_tensor[1]}, self.z_tensor[1]})
+--    self.output[1] = self.model.output
+--    for i=2, input:size(1) do
+--      self.model:forward({{self.a_i_acts[i], self.model.output}, self:getCellStates(self.model)})
+--      self.output[i] = self.model.output
+--    end
+--    return self.output
+--  else -- training mode
+  self.batch_size = input:size(1) / self.history_size
+  self.output:resize(self.history_size * self.batch_size, self.layerSize)
+  self.a_i_acts = self.a_i_acts_module:forward(input)
+  local z_tensor = self.z_tensor:repeatTensor(self.batch_size, 1)
+  -- do first step manually, set previous output and previous cell state to zeros
+  self.model:forward({{self.a_i_acts[{{1, self.batch_size}, {}}], z_tensor}, z_tensor})
+  self.output[{{1, self.batch_size}, {}}]:copy(self.model.output)
+  for i= 3, #self.modules do
+    local p_step = self.modules[i-1]
+    local step = self.modules[i]
+    local interval = {(i-2)*self.batch_size + 1, (i-1)*self.batch_size}
+    local t_i_acts = self.a_i_acts[{interval,{}}]
+    step:forward({{t_i_acts, p_step.output}, self:getCellStates(p_step)})
+    self.output[{interval,{}}]:copy(step.output)
   end
+--  end
   return self.output
 end
 

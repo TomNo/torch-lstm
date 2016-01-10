@@ -240,6 +240,7 @@ function NeuralNetwork:test(dataset)
   assert(dataset.cols == self.input_size, "Dataset inputs does not match first layer size.")
   local g_error = 0
   local c_error = 0
+  self.model:evaluate()
   dataset:startBatchIteration(self.conf.parallel_sequences,
                               self.conf.truncate_seq)
   -- TODO refactor
