@@ -24,6 +24,16 @@ function parseConfigOption(val)
   return val
 end
 
+function grad_clip(element)
+  if element > 1.0 then
+    return 1.0
+  elseif element < - 1.0 then
+    return -1.0
+  else
+    return element
+  end
+end 
+
 local NeuralNetwork = torch.class('NeuralNetwork')
 
 NeuralNetwork.FEED_FORWARD_TANH = "feedforward_tanh"
@@ -77,6 +87,11 @@ function NeuralNetwork:init()
   end
   self:_createLayers()
   self.model:reset(self.conf.weights_uniform_max)
+  if self.conf.optimizer == "adadelta" then
+    self.optim = optim.adadelta
+  else
+    self.optim = optim.sgd
+  end 
   self.m_params, self.m_grad_params = self.model:getParameters()
 end
 
@@ -167,15 +182,16 @@ function NeuralNetwork:train(dataset, cv_dataset)
     momentum = self.conf.momentum,
     learningRateDecay = self.conf.learning_rate_decay
   }
-  self.model:training()
+
   for epoch=1, self.conf.max_epochs do
+    self.model:training()
     print('==> doing epoch ' .. epoch .. ' on training data.')
     local time = sys.clock()
-    dataset:startBatchIteration(self.conf.parallel_sequences,
+    dataset:startBatchIterationa(self.conf.parallel_sequences,
                                 self.conf.truncate_seq,
                                 self.conf.shuffle_sequences)
     local e_error = 0
-    for i=1, dataset.rows, (self.conf.parallel_sequences * self.conf.truncate_seq) do
+   while true do
       self.inputs, self.labels = dataset:getBatch()
       if self.inputs == nil then
         break
@@ -190,11 +206,14 @@ function NeuralNetwork:train(dataset, cv_dataset)
         self.m_grad_params:zero()
         local outputs = self.model:forward(self.inputs)
         local err = self.criterion:forward(outputs, self.labels)
+        err = err/self.inputs:size(1)
         e_error = e_error + err
         self.model:backward(self.inputs, self.criterion:backward(outputs, self.labels))
+        -- apply gradient clipping
+        self.m_grad_params:apply(grad_clip)
         return err, self.m_grad_params
       end -- feval
-      optim.sgd(feval, self.m_params, opt_params)
+      self.optim(feval, self.m_params, opt_params)
     end -- mini batch
     collectgarbage()
     print("Epoch has taken " .. sys.clock() - time .. " seconds.")
@@ -244,7 +263,7 @@ function NeuralNetwork:test(dataset)
   dataset:startBatchIteration(self.conf.parallel_sequences,
                               self.conf.truncate_seq)
   -- TODO refactor
-  for i=1, dataset.rows, (self.conf.parallel_sequences * self.conf.truncate_seq) do
+  while true do
     self.inputs, self.labels = dataset:getBatch()
     if self.inputs == nil then
       break

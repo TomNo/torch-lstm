@@ -33,7 +33,7 @@ function TrainSeqDs:__init(filename, cuda, load_all)
   if load_all then
     self:_readAll()
   end
---  self:_genIntervals()
+  self:_genIntervals()
 end
 
 function TrainSeqDs:_readAll()
@@ -72,7 +72,7 @@ function TrainSeqDs:_readSize()
   end
 end
 
-function TrainSeqDs:getSeq(interval)
+function TrainSeqDs:_getSeq(interval)
   local data = nil
   local labels = nil
   if self.load_all then
@@ -86,12 +86,47 @@ function TrainSeqDs:getSeq(interval)
   return data, labels
 end
 
+function TrainSeqDs:startSeqIteration()
+  self.seq_index = 1
+end
+
+function TrainSeqDs:getSeq()
+  if self.seq_index > #self.intervals then
+    return nil
+  end
+  local start = 1
+  if self.seq_index ~= 1 then
+     start = self.intervals[self.seq_index - 1 ] + 1
+  end
+  local interval = {start, self.intervals[self.seq_index]}
+  self.seq_index = self.seq_index + 1
+  local data, labels =  self:_getSeq(interval)
+  self.data:resize(data:size(1), data:size(2))
+  self.labels:resize(labels:size(1))
+  self.data:copy(data)
+  self.labels:copy(labels)
+  return self.data, self.labels
+end
+
+function TrainSeqDs:startBatchIterationa(b_size, h_size, shuffle)
+  self.m_b_count = 2 * math.floor(self.rows / (h_size * b_size)) - 1
+  if shuffle then
+    self.samples = torch.randperm(2*(math.floor(self.rows / h_size) - 1))
+  else
+    self.samples = torch.range(1, 2*(math.floor(self.rows / h_size) - 1))
+  end
+  self.index = 1
+  self.h_size = h_size
+  self.b_size = b_size
+  self.a_b_count = 1
+end
+
 function TrainSeqDs:startBatchIteration(b_size, h_size, shuffle)
   self.m_b_count = math.floor(self.rows / (h_size * b_size))
   if shuffle then
-    self.samples = torch.randperm(math.floor(self.rows / h_size))
+    self.samples = torch.randperm((math.floor(self.rows / h_size)))
   else
-    self.samples = torch.range(1, math.floor(self.rows / h_size))
+    self.samples = torch.range(1,(math.floor(self.rows / h_size)))
   end
   self.index = 1
   self.h_size = h_size
@@ -107,8 +142,13 @@ function TrainSeqDs:getBatch()
   self.labels:resize(self.b_size * self.h_size)
   for i=1, self.b_size do
     local index = self.samples[self.index]
-    local interval = {(index - 1) *  self.h_size + 1, index * self.h_size} 
-    local seq_data, seq_labels = self:getSeq(interval)
+    local shift = 0
+    if index >= (self.rows/self.h_size) then
+      shift = self.h_size * 0.5
+      index = math.floor(index / 2)
+    end
+    local interval = {(index - 1) *  self.h_size + 1 + shift, index * self.h_size+shift} 
+    local seq_data, seq_labels = self:_getSeq(interval)
     for y=0, self.h_size - 1 do
       self.labels[y * self.b_size + i] = seq_labels[y+1] 
       self.data[y * self.b_size + i] = seq_data[y+1]
