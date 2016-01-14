@@ -7,6 +7,8 @@ require 'optim'
 
 --TODO bptt?
 --TODO gradiend cliping
+-- TODO procesing sequences by uterrances
+-- TODO ctc https://github.com/fchollet/keras/issues/383
 
 torch.setdefaulttensortype('torch.FloatTensor')
 
@@ -24,11 +26,14 @@ function parseConfigOption(val)
   return val
 end
 
+CLIP_MIN = - 10.0
+CLIP_MAX = 10.0
+
 function grad_clip(element)
-  if element > 1.0 then
-    return 1.0
-  elseif element < - 1.0 then
-    return -1.0
+  if element > CLIP_MAX then
+    return CLIP_MAX
+  elseif element < CLIP_MIN then
+    return CLIP_MIN
   else
     return element
   end
@@ -87,7 +92,9 @@ function NeuralNetwork:init()
   end
   self:_createLayers()
   self.model:reset(self.conf.weights_uniform_max)
-  if self.conf.optimizer == "adadelta" then
+  if self.conf.optimizer == "rmsprop" then
+    self.optim = optim.rmpsprop
+  elseif self.conf.optimizer == "adadelta" then
     self.optim = optim.adadelta
   else
     self.optim = optim.sgd
@@ -165,6 +172,9 @@ function NeuralNetwork:_addLayer(layer, p_layer)
   if layer.dropout and layer.dropout > 0 then
     self.model:add(nn.Dropout(layer.dropout))
   end
+  if layer.batch_normalization then
+    self.model:add(nn.BatchNormalization(layer.size))
+  end
 end
 
 --TODO add crossvalidation somehow??
@@ -182,7 +192,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
     momentum = self.conf.momentum,
     learningRateDecay = self.conf.learning_rate_decay
   }
-
+  local state = {}
   for epoch=1, self.conf.max_epochs do
     self.model:training()
     print('==> doing epoch ' .. epoch .. ' on training data.')
@@ -206,14 +216,14 @@ function NeuralNetwork:train(dataset, cv_dataset)
         self.m_grad_params:zero()
         local outputs = self.model:forward(self.inputs)
         local err = self.criterion:forward(outputs, self.labels)
-        err = err/self.inputs:size(1)
+--        err = err/self.inputs:size(1)
         e_error = e_error + err
         self.model:backward(self.inputs, self.criterion:backward(outputs, self.labels))
         -- apply gradient clipping
         self.m_grad_params:apply(grad_clip)
         return err, self.m_grad_params
       end -- feval
-      self.optim(feval, self.m_params, opt_params)
+      self.optim(feval, self.m_params, opt_params, state)
     end -- mini batch
     collectgarbage()
     print("Epoch has taken " .. sys.clock() - time .. " seconds.")

@@ -91,13 +91,12 @@ function LstmStep:backward(input, gradOutput, pGradOutput, pCellGrad, scale)
    currentGradOutput = currentModule:backward(input, currentGradOutput, scale)
    self.gradInput = currentGradOutput
    return currentGradOutput
-
 end
 
 function Lstm:__init(inputSize, layerSize, hist)
   parent.__init(self)
   self.batch_size = 0
-  self.scale = 1 / hist
+  self.scale = 1 -- 1 / hist
   self.inputSize = inputSize
   self.history_size = hist -- history size
   self.layerSize = layerSize
@@ -108,15 +107,18 @@ function Lstm:__init(inputSize, layerSize, hist)
   self.a_count = 4 * layerSize
   local p_count = 2 * layerSize
   -- set biases for all units in here -> temporary to one
-  self.a_i_acts_module = nn.Linear(inputSize, self.a_count)
+  self.a_i_acts_module = nn.Sequential()
+  self.a_i_acts_module:add(nn.Linear(inputSize, self.a_count))
   table.insert(self.modules, self.a_i_acts_module)
   --module for computing one mini batch
   self.model = LstmStep.new()
   local i_acts = nn.Identity()
   -- all output activations
-  local o_acts = LinearNoBias.new(layerSize, self.a_count)
+  local o_acts = nn.Sequential():add(LinearNoBias.new(layerSize, self.a_count))
   -- forget and input peepholes cell acts
-  local c_acts = nn.ConcatTable():add(LinearNoBias.new(layerSize, p_count)):add(nn.Identity())
+  local fg_peep = nn.Sequential():add(LinearNoBias.new(layerSize, p_count))
+  local c_acts = nn.ConcatTable():add(fg_peep):add(nn.Identity())
+
   -- container for summed input and output activations
   -- that is divided in half
   local io_acts = nn.Sequential()

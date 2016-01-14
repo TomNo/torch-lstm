@@ -9,13 +9,15 @@
             "size": 512,
             "name": "output",
             "bias": 1.0,
-            "type": "blstm"
+            "type": "blstm",
+            "batch_normalization": true
         },
         {
             "size": 512,
             "name": "output1",
             "bias": 1.0,
-            "type": "blstm"
+            "type": "blstm",
+            "batch_normalization": true
         },
         {
             "size": 1940,

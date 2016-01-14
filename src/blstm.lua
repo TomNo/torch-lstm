@@ -12,6 +12,7 @@ function Blstm:__init(inputSize, layerSize, hist)
   assert(layerSize % 2 == 0, "Layer must have even count of neurons.")
   parent.__init(self)
   local o_size = layerSize / 2;
+  self.b_norm = b_norm or false
   self.layerSize = layerSize
   self.inputSize = inputSize
   self.history_size = hist
