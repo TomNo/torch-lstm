@@ -26,8 +26,8 @@ function parseConfigOption(val)
   return val
 end
 
-CLIP_MIN = - 10.0
-CLIP_MAX = 10.0
+CLIP_MIN = - 1.0
+CLIP_MAX = 1.0
 
 function grad_clip(element)
   if element > CLIP_MAX then
@@ -91,6 +91,8 @@ function NeuralNetwork:init()
     end
   end
   self:_createLayers()
+  print("Model:")
+  print(self.model)
   self.model:reset(self.conf.weights_uniform_max)
   if self.conf.optimizer == "rmsprop" then
     self.optim = optim.rmpsprop
@@ -149,7 +151,7 @@ end
 
 function NeuralNetwork:_addLayer(layer, p_layer)
   if layer.type == NeuralNetwork.INPUT then
-    return -- just for backward compatibility
+    return
   elseif layer.type == NeuralNetwork.FEED_FORWARD_LOGISTIC then
     self.model:add(nn.Linear(p_layer.size, layer.size))
     self.model:add(nn.Sigmoid())
@@ -160,9 +162,9 @@ function NeuralNetwork:_addLayer(layer, p_layer)
     self.model:add(nn.Linear(p_layer.size, layer.size))
     self.model:add(nn.ReLU())
   elseif layer.type == NeuralNetwork.LSTM then
-    self.model:add(Lstm.new(p_layer.size, layer.size, self.conf.truncate_seq))
+    self.model:add(Lstm.new(p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
   elseif layer.type == NeuralNetwork.BLSTM then
-    self.model:add(Blstm.new(p_layer.size, layer.size, self.conf.truncate_seq))
+    self.model:add(Blstm.new(p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
   elseif layer.type == NeuralNetwork.SOFTMAX then
     self.model:add(nn.Linear(p_layer.size, layer.size))
     self.model:add(nn.LogSoftMax())

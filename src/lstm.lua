@@ -93,9 +93,10 @@ function LstmStep:backward(input, gradOutput, pGradOutput, pCellGrad, scale)
    return currentGradOutput
 end
 
-function Lstm:__init(inputSize, layerSize, hist)
+function Lstm:__init(inputSize, layerSize, hist, b_norm)
   parent.__init(self)
   self.batch_size = 0
+  self.b_norm =  b_norm or false
   self.scale = 1 -- 1 / hist
   self.inputSize = inputSize
   self.history_size = hist -- history size
@@ -109,14 +110,23 @@ function Lstm:__init(inputSize, layerSize, hist)
   -- set biases for all units in here -> temporary to one
   self.a_i_acts_module = nn.Sequential()
   self.a_i_acts_module:add(nn.Linear(inputSize, self.a_count))
+--  if self.b_norm then
+--    self.a_i_acts_module:add(nn.BatchNormalization(self.a_count))
+--  end
   table.insert(self.modules, self.a_i_acts_module)
   --module for computing one mini batch
   self.model = LstmStep.new()
   local i_acts = nn.Identity()
   -- all output activations
   local o_acts = nn.Sequential():add(LinearNoBias.new(layerSize, self.a_count))
+--  if self.b_norm then
+--    o_acts:add(nn.BatchNormalization(self.a_count))
+--  end
   -- forget and input peepholes cell acts
   local fg_peep = nn.Sequential():add(LinearNoBias.new(layerSize, p_count))
+  if self.b_norm then
+    fg_peep:add(nn.BatchNormalization(p_count))
+  end
   local c_acts = nn.ConcatTable():add(fg_peep):add(nn.Identity())
 
   -- container for summed input and output activations
@@ -165,7 +175,11 @@ function Lstm:__init(inputSize, layerSize, hist)
   -- scale by peephole from the cell state to output gate and apply sigmoid to output gate,
   -- also apply squashing function to the cell states
   cell_acts = nn.ConcatTable()
+--  if self.b_norm then
+--    cell_acts:add(nn.Sequential():add(nn.SelectTable(1)):add(LinearNoBias.new(layerSize, layerSize)):add(nn.BatchNormalization(layerSize)))
+--  else
   cell_acts:add(nn.Sequential():add(nn.SelectTable(1)):add(LinearNoBias.new(layerSize, layerSize)))
+--  end
   cell_acts:add(nn.SelectTable(2))
   cell_acts:add(nn.Sequential():add(nn.SelectTable(1)):add(nn.Tanh()))
   self.model:add(cell_acts)
@@ -257,7 +271,7 @@ end
 
 function Lstm:__tostring__()
   return torch.type(self) ..
-      string.format('(%d -> %d)', self.inputSize, self.layerSize)
+      string.format('(%d -> %d, BatchNormalized=%s)', self.inputSize, self.layerSize, self.b_norm)
 end
 
 function checkBatchedForward()

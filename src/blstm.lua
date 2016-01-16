@@ -8,7 +8,7 @@ local Blstm, parent = torch.class('Blstm', 'nn.Container')
 
 --just spawn two lstms that will process output in oposite direction
 
-function Blstm:__init(inputSize, layerSize, hist)
+function Blstm:__init(inputSize, layerSize, hist, b_norm)
   assert(layerSize % 2 == 0, "Layer must have even count of neurons.")
   parent.__init(self)
   local o_size = layerSize / 2;
@@ -16,8 +16,8 @@ function Blstm:__init(inputSize, layerSize, hist)
   self.layerSize = layerSize
   self.inputSize = inputSize
   self.history_size = hist
-  self.b_lstm = Lstm.new(inputSize, o_size, hist)
-  self.f_lstm = Lstm.new(inputSize, o_size, hist)
+  self.b_lstm = Lstm.new(inputSize, o_size, hist, self.b_norm)
+  self.f_lstm = Lstm.new(inputSize, o_size, hist, self.b_norm)
   self.modules = {self.f_lstm, self.b_lstm}
   self.r_input = torch.Tensor()
 end
@@ -49,7 +49,7 @@ end
 
 function Blstm:__tostring__()
   return torch.type(self) ..
-      string.format('(%d -> %d)', self.inputSize, self.layerSize)
+      string.format('(%d -> %d, BatchNormalized=%s)', self.inputSize, self.layerSize, self.b_norm)
 end
 
 --a = Lstm.new(10, 20, 50)
