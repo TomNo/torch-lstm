@@ -6,30 +6,6 @@
             "type": "input"
         },
         {
-            "size": 1024,
-            "name": "output",
-            "bias": 1.0,
-            "type": "feedforward_tanh"
-        },
-        {
-            "size": 1024,
-            "name": "output",
-            "bias": 1.0,
-            "type": "feedforward_tanh"
-        },
-        {
-            "size": 1024,
-            "name": "output",
-            "bias": 1.0,
-            "type": "feedforward_tanh"
-        },
-        {
-            "size": 1024,
-            "name": "output",
-            "bias": 1.0,
-            "type": "feedforward_tanh"
-        },
-        {
             "size": 1940,
             "name": "output",
             "bias": 1.0,

@@ -39,6 +39,51 @@ function grad_clip(element)
   end
 end 
 
+local EarlyStopping = torch.class('EarlyStopping')
+
+function EarlyStopping:__init(history)
+  self.history = history
+  self.w_hist = {}
+  self.e_hist = {}
+  for i=1, history do
+    table.insert(self.w_hist, 0)
+    table.insert(self.e_hist, math.huge)
+  end
+end
+
+function EarlyStopping:getBestWeights()
+  local b_error = math.huge
+  local b_index = -1
+  for i=1,self.history do
+    if b_error > self.e_hist[i] then
+      b_error = self.e_hist[i]
+      b_index = i
+    end
+  end
+  return self.w_hist[b_index]
+end
+
+-- attempts to insert new item
+-- if possible returns true, false otherwise - learning should stop
+function EarlyStopping:_insert(err, weights)
+  local result = false
+  for i=1, self.history do
+    if err < self.e_hist[i] then
+      self.e_hist[i] = err
+      self.w_hist[i] = weights:clone()
+      result = true
+      break
+    end
+  end
+  return result
+end
+
+function EarlyStopping:validate(net, dataset)
+  local cv_g_error,  cv_c_error= net:test(dataset)
+  print("Error on cv set set is: " .. cv_g_error .. "% " .. cv_c_error)
+  return self:_insert(cv_c_error, net.m_params)
+end
+
 local NeuralNetwork = torch.class('NeuralNetwork')
 
 NeuralNetwork.FEED_FORWARD_TANH = "feedforward_tanh"
@@ -49,6 +94,7 @@ NeuralNetwork.SOFTMAX = "softmax"
 NeuralNetwork.INPUT = "input"
 NeuralNetwork.LSTM = "lstm"
 NeuralNetwork.BLSTM = "blstm"
+NeuralNetwork.DEFAULT_HISTORY = 5
 
 function NeuralNetwork:__init(params, log)
   for key, value in pairs(params) do
@@ -90,6 +136,7 @@ function NeuralNetwork:init()
       self.conf.cuda = false
     end
   end
+  self.e_stopping = EarlyStopping.new(self.conf.max_epochs_no_best)
   self:_createLayers()
   print("Model:")
   print(self.model)
@@ -203,7 +250,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
                                 self.conf.truncate_seq,
                                 self.conf.shuffle_sequences)
     local e_error = 0
-   while true do
+    while true do
       self.inputs, self.labels = dataset:getBatch()
       if self.inputs == nil then
         break
@@ -231,12 +278,14 @@ function NeuralNetwork:train(dataset, cv_dataset)
     print("Epoch has taken " .. sys.clock() - time .. " seconds.")
     print("Error on training set is: " .. e_error)
     if not self.conf.validate_every or epoch % self.conf.validate_every == 0 then
-      if cv_dataset then
-        local cv_g_error,  cv_c_error= self:test(cv_dataset)
-        print("Error on cv set set is: " .. cv_g_error .. "% " .. cv_c_error)
+      if cv_dataset and not self.e_stopping:validate(self, cv_dataset) then
+        print("No lowest validation error was reached -> stopping training.")
+        self.m_params:copy(self.e_stopping:getBestWeights())
+        break
       end
     end
   end -- epoch
+  print("Training finished.")
 end
 
 function NeuralNetwork:forward(dataset)

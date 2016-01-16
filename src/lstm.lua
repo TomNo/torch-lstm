@@ -124,9 +124,9 @@ function Lstm:__init(inputSize, layerSize, hist, b_norm)
 --  end
   -- forget and input peepholes cell acts
   local fg_peep = nn.Sequential():add(LinearNoBias.new(layerSize, p_count))
-  if self.b_norm then
-    fg_peep:add(nn.BatchNormalization(p_count))
-  end
+--  if self.b_norm then
+--    fg_peep:add(nn.BatchNormalization(p_count))
+--  end
   local c_acts = nn.ConcatTable():add(fg_peep):add(nn.Identity())
 
   -- container for summed input and output activations
@@ -168,7 +168,11 @@ function Lstm:__init(inputSize, layerSize, hist, b_norm)
   -- add previous cell state
   self.model:add(cell_acts)
   cell_acts = nn.ConcatTable()
-  cell_acts:add(nn.Sequential():add(nn.NarrowTable(1,2)):add(nn.CAddTable()))
+  if self.b_norm then
+    cell_acts:add(nn.Sequential():add(nn.NarrowTable(1,2)):add(nn.CAddTable()):add(nn.BatchNormalization(self.layerSize)))
+  else
+    cell_acts:add(nn.Sequential():add(nn.NarrowTable(1,2)):add(nn.CAddTable()))
+  end
   cell_acts:add(nn.Sequential():add(nn.SelectTable(3)))
   self.model:add(cell_acts)
   -- output of the model at this stage is <c_acts, o_acts>
