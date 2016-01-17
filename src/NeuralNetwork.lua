@@ -246,12 +246,13 @@ function NeuralNetwork:train(dataset, cv_dataset)
     self.model:training()
     print('==> doing epoch ' .. epoch .. ' on training data.')
     local time = sys.clock()
-    dataset:startBatchIterationa(self.conf.parallel_sequences,
-                                self.conf.truncate_seq,
-                                self.conf.shuffle_sequences)
+    dataset:startRealBatch(self.conf.parallel_sequences,
+                          self.conf.truncate_seq,
+                          self.conf.shuffle_sequences,
+                          true)
     local e_error = 0
     while true do
-      self.inputs, self.labels = dataset:getBatch()
+      self.inputs, self.labels = dataset:nextRealBatch()
       if self.inputs == nil then
         break
       end
@@ -321,23 +322,71 @@ function NeuralNetwork:test(dataset)
   local g_error = 0
   local c_error = 0
   self.model:evaluate()
-  dataset:startBatchIteration(self.conf.parallel_sequences,
-                              self.conf.truncate_seq)
-  -- TODO refactor
+--  dataset:startIteration(self.conf.parallel_sequences,
+--                         self.conf.truncate_seq)
+
+--  dataset:startSeqIteration()
+  dataset:startRealBatch(self.conf.parallel_sequences, self.conf.truncate_seq, false, false)
   while true do
-    self.inputs, self.labels = dataset:getBatch()
+    self.inputs, self.labels = dataset:nextRealBatch()
     if self.inputs == nil then
       break
     end
+    
     local o_labels = self.model:forward(self.inputs)
     c_error = c_error + self.criterion(o_labels, self.labels)
-    for c=1, o_labels:size(1) do
+    for c=1, self.labels:size(1) do
       local _, l_max =  o_labels[c]:max(1)
       if l_max[1] ~= self.labels[c] then
         g_error = g_error + 1
       end    
-    end
+    end    
   end
+-- TODO this should be more likely a forward code
+--  while true do
+--    self.inputs, self.labels = dataset:getSeq()
+--    if self.inputs == nil then
+--      break
+--    end
+--    o_labels:resize(self.inputs:size(1), self.output_size)
+--    local it = 1
+--    while true do
+--      local e_int = it + self.conf.truncate_seq - 1
+--      local diff = e_int - self.inputs:size(1)
+--      if  diff >= self.conf.truncate_seq then
+--        break -- next mini sequences is entirely behind current seq maximum
+--      elseif diff > 0 then
+--        e_int = self.inputs:size(1) -- make it end at the whole sequence end
+--      end  
+--        
+--      local interval = {{it, e_int},{}}
+--      o_labels[interval] = self.model:forward(self.inputs[interval])
+--          
+--      it = it + self.conf.truncate_seq
+--    end
+--    c_error = c_error + self.criterion(o_labels, self.labels)
+--    for c=1, self.labels:size(1) do
+--      local _, l_max =  o_labels[c]:max(1)
+--      if l_max[1] ~= self.labels[c] then
+--        g_error = g_error + 1
+--      end    
+--    end 
+--  end
+  -- TODO refactor
+--  while true do
+--    self.inputs, self.labels = dataset:nextBatch()
+--    if self.inputs == nil then
+--      break
+--    end
+--    local o_labels = self.model:forward(self.inputs)
+--    c_error = c_error + self.criterion(o_labels, self.labels)
+--    for c=1, o_labels:size(1) do
+--      local _, l_max =  o_labels[c]:max(1)
+--      if l_max[1] ~= self.labels[c] then
+--        g_error = g_error + 1
+--      end    
+--    end
+--  end
   collectgarbage()
   return (g_error / dataset.rows) * 100, c_error
 end

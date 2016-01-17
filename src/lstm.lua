@@ -241,30 +241,39 @@ function Lstm:updateOutput(input)
 --  if not self.train then -- threat input as one long sequence
 --    self.output:resize(input:size(1), self.layerSize)
 --    self.a_i_acts = self.a_i_acts_module:forward(input)
---    self.model:forward({{self.a_i_acts[1], self.z_tensor[1]}, self.z_tensor[1]})
+--    self.model:forward({{self.a_i_acts[{{1}}], self.z_tensor[{{1}}]}, self.z_tensor[{{1}}]})
 --    self.output[1] = self.model.output
 --    for i=2, input:size(1) do
---      self.model:forward({{self.a_i_acts[i], self.model.output}, self:getCellStates(self.model)})
+--      self.model:forward({{self.a_i_acts[{{i}}], self.model.output}, self:getCellStates(self.model)})
 --      self.output[i] = self.model.output
 --    end
 --    return self.output
 --  else -- training mode
+    if not self.train and input:size(1) < self.history_size then
+      -- there can be sequence that is shorter than required history
+      self.history_backup = self.history_size
+      self.history_size = input:size(1)        
+    end 
     self.batch_size = input:size(1) / self.history_size
     self.output:resize(self.history_size * self.batch_size, self.layerSize)
     self.a_i_acts = self.a_i_acts_module:forward(input)
     local z_tensor = self.z_tensor:repeatTensor(self.batch_size, 1)
     -- do first step manually, set previous output and previous cell state to zeros
-    self.model:forward({{self.a_i_acts[{{1, self.batch_size}, {}}], z_tensor}, z_tensor})
-    self.output[{{1, self.batch_size}, {}}]:copy(self.model.output)
-    for i= 3, #self.modules do
-      local p_step = self.modules[i-1]
-      local step = self.modules[i]
-      local interval = {(i-2)*self.batch_size + 1, (i-1)*self.batch_size}
-      local t_i_acts = self.a_i_acts[{interval,{}}]
+    self.model:forward({{self.a_i_acts[{{1, self.batch_size}}], z_tensor}, z_tensor})
+    self.output[{{1, self.batch_size}}]:copy(self.model.output)
+    for i= 2, input:size(1)/self.batch_size do
+      local p_step = self.modules[i]
+      local step = self.modules[i+1]
+      local interval = {(i-1)*self.batch_size + 1, i*self.batch_size}
+      local t_i_acts = self.a_i_acts[{interval}]
       step:forward({{t_i_acts, p_step.output}, self:getCellStates(p_step)})
       self.output[{interval,{}}]:copy(step.output)
     end
 --  end
+  if not self.train and self.history_backup then
+    self.history_size = self.history_backup
+    self.history_backup = nil
+  end
   return self.output
 end
 
