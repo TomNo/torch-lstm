@@ -142,7 +142,7 @@ function NeuralNetwork:init()
   print(self.model)
   self.model:reset(self.conf.weights_uniform_max)
   if self.conf.optimizer == "rmsprop" then
-    self.optim = optim.rmpsprop
+    self.optim = optim.rmsprop
   elseif self.conf.optimizer == "adadelta" then
     self.optim = optim.adadelta
   else

@@ -7,9 +7,10 @@
         },
         {
             "size": 512,
-            "name": "output",
+            "name": "output1",
             "bias": 1.0,
             "type": "blstm",
+            "dropout": 0.0,
             "batch_normalization": true
         },
         {
@@ -17,6 +18,7 @@
             "name": "output1",
             "bias": 1.0,
             "type": "blstm",
+            "dropout": 0.0,
             "batch_normalization": true
         },
         {

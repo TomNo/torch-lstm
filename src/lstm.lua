@@ -1,7 +1,8 @@
 require 'torch'
 require 'nn'
+require 'rnn'
 
-local LinearNoBias, Linear = torch.class('nn.LinearNoBias', 'nn.Linear')
+local LinearNoBias, Linear = torch.class('LinearNoBias', 'nn.Linear')
 
 function LinearNoBias:__init(inputSize, outputSize)
    nn.Module.__init(self)
@@ -63,6 +64,72 @@ function LinearNoBias:accGradParameters(input, gradOutput, scale)
 end
 
 
+-- layer for peepholes
+local LinearScale, Linear = torch.class('LinearScale', 'nn.Linear')
+
+function LinearScale:__init(outputSize)
+   nn.Module.__init(self)
+   self.weight = torch.Tensor(outputSize)
+   self.gradWeight = torch.Tensor(outputSize)
+   self:reset()
+end
+
+function LinearScale:reset(stdv)
+   if stdv then
+      stdv = stdv * math.sqrt(3)
+   else
+      stdv = 1./math.sqrt(self.weight:size(1))
+   end
+   self.weight:uniform(-stdv, stdv)
+
+   return self
+end
+
+function LinearScale:updateOutput(input)
+   if input:dim() == 1 then
+      self.output:resizeAs(input)
+      self.output:copy(input)
+      self.output:cmul(self.weight)
+   elseif input:dim() == 2 then
+      self.output:resizeAs(input)
+      self.output:cmul(input, self.weight:repeatTensor(input:size(1),1))
+   else
+      error('input must be vector or matrix')
+   end
+   return self.output
+end
+
+function LinearScale:updateGradInput(input, gradOutput)
+   if self.gradInput then
+
+      local nElement = self.gradInput:nElement()
+      self.gradInput:resizeAs(input)
+      if self.gradInput:nElement() ~= nElement then
+         self.gradInput:zero()
+      end
+      
+      if input:dim() == 1 then
+         self.gradInput:addcmul(self.weight, gradOutput)
+      elseif input:dim() == 2 then
+        self.gradInput:cmul(gradOutput, self.weight:repeatTensor(gradOutput:size(1),1))         
+      end
+
+      return self.gradInput
+   end
+end
+
+
+function LinearScale:accGradParameters(input, gradOutput, scale)
+  scale = scale or 1
+  if input:dim() == 1 then
+    self.gradWeight:addcmul(input, gradOutput)         
+  else
+    self.gradWeight:add(torch.cmul(input, gradOutput):sum(1))
+  end
+  self.gradWeight:mul(scale)
+end
+
+
 local Lstm, parent = torch.class('Lstm', 'nn.Container')
 
 --TODO there is no support for non batch mode
@@ -93,11 +160,12 @@ function LstmStep:backward(input, gradOutput, pGradOutput, pCellGrad, scale)
    return currentGradOutput
 end
 
+
 function Lstm:__init(inputSize, layerSize, hist, b_norm)
   parent.__init(self)
   self.batch_size = 0
   self.b_norm =  b_norm or false
-  self.scale = 1 -- 1 / hist
+  self.scale = 1
   self.inputSize = inputSize
   self.history_size = hist -- history size
   self.layerSize = layerSize
@@ -122,11 +190,14 @@ function Lstm:__init(inputSize, layerSize, hist, b_norm)
 --  if self.b_norm then
 --    o_acts:add(nn.BatchNormalization(self.a_count))
 --  end
-  -- forget and input peepholes cell acts
-  local fg_peep = nn.Sequential():add(LinearNoBias.new(layerSize, p_count))
+--  -- forget and input peepholes cell acts
+--  local fg_peep = nn.Sequential():add(LinearNoBias.new(layerSize, p_count)) -- ERROR`
+  local fg_peep = nn.Sequential():add(nn.ConcatTable():add(LinearScale.new(layerSize)):add(LinearScale.new(layerSize))):add(nn.JoinTable(1))
 --  if self.b_norm then
 --    fg_peep:add(nn.BatchNormalization(p_count))
 --  end
+-- add forget and input peepholes
+--  local c_acts = nn.ConcatTable():add(LinearScale.new(layerSize)):add(LinearScale.new(layerSize)):add(nn.Identity())
   local c_acts = nn.ConcatTable():add(fg_peep):add(nn.Identity())
 
   -- container for summed input and output activations
@@ -136,6 +207,7 @@ function Lstm:__init(inputSize, layerSize, hist, b_norm)
   io_acts:add(nn.CAddTable()):add(nn.Reshape(2, 2 * layerSize)):add(nn.SplitTable(1,2))
   -- sum half of the activations with peepholes
   self.model:add(nn.ParallelTable():add(io_acts):add(c_acts))
+ 
   self.model:add(nn.FlattenTable())
   -- output of the model at this stage is <c_states + o_acts, i_acts + f_acts, peepholes acts, cell states>
   -- input and forget gate activation
@@ -182,11 +254,11 @@ function Lstm:__init(inputSize, layerSize, hist, b_norm)
 --  if self.b_norm then
 --    cell_acts:add(nn.Sequential():add(nn.SelectTable(1)):add(LinearNoBias.new(layerSize, layerSize)):add(nn.BatchNormalization(layerSize)))
 --  else
-  cell_acts:add(nn.Sequential():add(nn.SelectTable(1)):add(LinearNoBias.new(layerSize, layerSize)))
+  cell_acts:add(nn.Sequential():add(nn.SelectTable(1)):add(LinearScale.new(layerSize,layerSize))) --ERROR
 --  end
   cell_acts:add(nn.SelectTable(2))
   cell_acts:add(nn.Sequential():add(nn.SelectTable(1)):add(nn.Tanh()))
-  self.model:add(cell_acts)
+  self.model:add(cell_acts) -- 8th module
   -- output of the model at this stage is <output_gate peephole act, o_acts, cell_acts>
   -- finalize the o_acts and apply sigmoid
   local cell_acts = nn.ConcatTable():add(nn.Sequential():add(nn.NarrowTable(1,2)):add(nn.CAddTable()):add(nn.Sigmoid()))
@@ -220,17 +292,17 @@ function Lstm:updateGradInput(input, gradOutput)
     local c = #self.modules - i
     local step = self.modules[c]
     local p_step = self.modules[c+1]
-    interval = {size - counter * self.batch_size +1, size - (counter -1) * self.batch_size}
-    local inp = {{self.a_i_acts[{interval,{}}], p_step.output}, self:getCellStates(p_step)}
+    interval = {{size - counter * self.batch_size +1, size - (counter -1) * self.batch_size}}
+    local inp = {{self.a_i_acts[interval], p_step.output}, self:getCellStates(p_step)}
     -- propagate error from previous time step
-    step:backward(inp, gradOutput[{interval, {}}], p_step.gradInput[1][2], p_step.gradInput[2], self.scale)
-    self.g_output[{interval, {}}]:copy(step.gradInput[1][1])
+    step:backward(inp, gradOutput[interval], p_step.gradInput[1][2], p_step.gradInput[2], self.scale)
+    self.g_output[interval]:copy(step.gradInput[1][1])
 --    -- acumulate error
 --    self.g_output[{interval, {}}]:add(p_step.gradInput[1][1])
     counter = counter + 1
   end
   
-  self.a_i_acts_module:backward(input, self.g_output, self.step)
+  self.a_i_acts_module:backward(input, self.g_output, self.scale)
   self.gradInput:resizeAs(self.a_i_acts_module.gradInput)
   self.gradInput:copy(self.a_i_acts_module.gradInput)
   return self.gradInput
@@ -256,17 +328,17 @@ function Lstm:updateOutput(input)
     end 
     self.batch_size = input:size(1) / self.history_size
     self.output:resize(self.history_size * self.batch_size, self.layerSize)
-    self.a_i_acts = self.a_i_acts_module:forward(input)
+    self.a_i_acts = self.a_i_acts_module:updateOutput(input)
     local z_tensor = self.z_tensor:repeatTensor(self.batch_size, 1)
     -- do first step manually, set previous output and previous cell state to zeros
-    self.model:forward({{self.a_i_acts[{{1, self.batch_size}}], z_tensor}, z_tensor})
+    self.model:updateOutput({{self.a_i_acts[{{1, self.batch_size}}], z_tensor}, z_tensor})
     self.output[{{1, self.batch_size}}]:copy(self.model.output)
     for i= 2, input:size(1)/self.batch_size do
       local p_step = self.modules[i]
       local step = self.modules[i+1]
       local interval = {(i-1)*self.batch_size + 1, i*self.batch_size}
       local t_i_acts = self.a_i_acts[{interval}]
-      step:forward({{t_i_acts, p_step.output}, self:getCellStates(p_step)})
+      step:updateOutput({{t_i_acts, p_step.output}, self:getCellStates(p_step)})
       self.output[{interval,{}}]:copy(step.output)
     end
 --  end
@@ -310,7 +382,41 @@ end
 
 --checkBatchedForward()
 --
---a = Lstm.new(1, 1, 3)
+
+--c = LinearScale.new(1)
+--c:backward(torch.ones(1), torch.ones(1))
+--a = Lstm.new(1, 1, 1)
+--b = nn.LSTM(1,1)
+--a:getParameters():fill(0.3)
+--b:getParameters():fill(0.3)
+--print(b:backward(torch.ones(1,1), torch.ones(1,1)))
+--a:forward(torch.ones(1,1))
+--print(a:backward(torch.ones(1,1), torch.ones(1,1)))
+
+--print(b:forward(torch.ones(1)))
+--print(b:forward(torch.ones(1)))
+--print(b:forward(torch.ones(1)))
+--print(a.model)
+--c = Lstm.new(1, 1, 3)
+--b = nn.LSTM(1,2)
+--print(b:getParameters():size())
+--a_params = a:getParameters()
+--print(a_params:size())
+--b_params = c:getParameters()
+--a_params:fill(0.2)
+--b_params:fill(0.2)
+--print(a:forward(torch.ones(1,1)))
+--print(c:forward(torch.ones(1,1)))
+--
+--print(a_params:size())
+--print(b:getParameters():size())
+--print(c:forward(torch.ones(1,1)))
+--print(b:forward(torch.ones(1)))
+--print(b:forward(torch.ones(1)))
+--print(b:forward(torch.ones(1)))
+
+
+--print(a.model)
 --
 --f, c = a:getParameters()
 --c:zero()
