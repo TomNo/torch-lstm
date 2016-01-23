@@ -9,17 +9,17 @@
             "size": 512,
             "name": "output1",
             "bias": 1.0,
-            "type": "blstm",
+            "type": "lstm",
             "dropout": 0.0,
-            "batch_normalization": true
+            "batch_normalization": false
         },
         {
             "size": 512,
             "name": "output1",
             "bias": 1.0,
-            "type": "blstm",
+            "type": "lstm",
             "dropout": 0.0,
-            "batch_normalization": true
+            "batch_normalization": false
         },
         {
             "size": 1940,

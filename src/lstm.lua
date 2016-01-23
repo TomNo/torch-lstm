@@ -254,7 +254,7 @@ function Lstm:__init(inputSize, layerSize, hist, b_norm)
 --  if self.b_norm then
 --    cell_acts:add(nn.Sequential():add(nn.SelectTable(1)):add(LinearNoBias.new(layerSize, layerSize)):add(nn.BatchNormalization(layerSize)))
 --  else
-  cell_acts:add(nn.Sequential():add(nn.SelectTable(1)):add(LinearScale.new(layerSize,layerSize))) --ERROR
+  cell_acts:add(nn.Sequential():add(nn.SelectTable(1)):add(LinearScale.new(layerSize))) --ERROR
 --  end
   cell_acts:add(nn.SelectTable(2))
   cell_acts:add(nn.Sequential():add(nn.SelectTable(1)):add(nn.Tanh()))
@@ -359,7 +359,7 @@ function Lstm:__tostring__()
       string.format('(%d -> %d, BatchNormalized=%s)', self.inputSize, self.layerSize, self.b_norm)
 end
 
-function checkBatchedForward()
+function testBatchedForward()
   local a = Lstm.new(3,3,3)
   local inp = torch.ones(3,3)
   local result = a:forward(inp):clone()
@@ -385,14 +385,33 @@ end
 
 --c = LinearScale.new(1)
 --c:backward(torch.ones(1), torch.ones(1))
---a = Lstm.new(1, 1, 1)
---b = nn.LSTM(1,1)
+--a = nn.Sequential():add(Lstm.new(3,2,1)):add(Lstm.new(2,1,1))
+--b = nn.Sequential():add(nn.LSTM(3,2)):add(nn.LSTM(2,1))
+--
+--a_params = a:getParameters()
+--b_params = b:getParameters()
+--
+--a_params:fill(0.3)
+--b_params:fill(0.3)
+--
+--print(a:forward(torch.ones(1,3)))
+--print(b:forward(torch.ones(1,3)))
+--print(a:backward(torch.ones(1,3), torch.ones(1,1)))
+--print(b:backward(torch.ones(1,3), torch.ones(1,1)))
+
+--a = Lstm.new(1, 2, 1)
+--b = nn.LSTM(1,2)
 --a:getParameters():fill(0.3)
 --b:getParameters():fill(0.3)
 --print(b:backward(torch.ones(1,1), torch.ones(1,1)))
---a:forward(torch.ones(1,1))
+--print(a:forward(torch.ones(1,1)))
 --print(a:backward(torch.ones(1,1), torch.ones(1,1)))
-
+--
+--print(b:forward(torch.ones(1)))
+--
+--print(b:backward(torch.ones(1), torch.ones(2)))
+--print(a:backward(torch.ones(1,1), torch.ones(1,2)))
+--print(b:forward(torch.ones(1)))
 --print(b:forward(torch.ones(1)))
 --print(b:forward(torch.ones(1)))
 --print(b:forward(torch.ones(1)))

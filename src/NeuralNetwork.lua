@@ -80,7 +80,8 @@ end
 
 function EarlyStopping:validate(net, dataset)
   local cv_g_error,  cv_c_error= net:test(dataset)
-  print("Error on cv set set is: " .. cv_g_error .. "% " .. cv_c_error)
+  print(string.format("Error on cv set set is: %.2f%% and loss is: %.4f",
+   cv_g_error, cv_c_error))
   return self:_insert(cv_c_error, net.m_params)
 end
 
@@ -209,9 +210,9 @@ function NeuralNetwork:_addLayer(layer, p_layer)
     self.model:add(nn.Linear(p_layer.size, layer.size))
     self.model:add(nn.ReLU())
   elseif layer.type == NeuralNetwork.LSTM then
-    self.model:add(Lstm.new(p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
+    self.model:add(Lstm.new(p_layer.size, layer.size, self.conf.truncate_seq))-- layer.batch_normalization))
   elseif layer.type == NeuralNetwork.BLSTM then
-    self.model:add(Blstm.new(p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
+    self.model:add(Blstm.new(p_layer.size, layer.size, self.conf.truncate_seq)) --layer.batch_normalization))
   elseif layer.type == NeuralNetwork.SOFTMAX then
     self.model:add(nn.Linear(p_layer.size, layer.size))
     self.model:add(nn.LogSoftMax())
@@ -226,6 +227,11 @@ function NeuralNetwork:_addLayer(layer, p_layer)
   end
 end
 
+function NeuralNetwork:_calculateError(predictions, labels)
+  local _, preds = predictions:max(2)
+  return preds:typeAs(labels):ne(labels):sum()
+end
+
 --TODO add crossvalidation somehow??
 function NeuralNetwork:train(dataset, cv_dataset)
   if self.conf.cuda then
@@ -238,21 +244,24 @@ function NeuralNetwork:train(dataset, cv_dataset)
   local opt_params = {
     learningRate = self.conf.learning_rate,
     weightDecay = self.conf.weight_decay,
-    momentum = self.conf.momentum,
-    learningRateDecay = self.conf.learning_rate_decay
+    momentum = self.conf.momentum
+--    learningRateDecay = self.conf.learning_rate_decay
   }
   local state = {}
   for epoch=1, self.conf.max_epochs do
     self.model:training()
     print('==> doing epoch ' .. epoch .. ' on training data.')
     local time = sys.clock()
-    dataset:startRealBatch(self.conf.parallel_sequences,
-                          self.conf.truncate_seq,
-                          self.conf.shuffle_sequences,
-                          true)
+    dataset:startIteration(self.conf.parallel_sequences,
+                           self.conf.truncate_seq,
+                           self.conf.shuffle_sequences,
+                           true)
     local e_error = 0
+    local e_predictions = 0
+    local i_count = 0
+    local grad_clips_acc = 0
     while true do
-      self.inputs, self.labels = dataset:nextRealBatch()
+      self.inputs, self.labels = dataset:nextBatch()
       if self.inputs == nil then
         break
       end
@@ -268,16 +277,25 @@ function NeuralNetwork:train(dataset, cv_dataset)
         local err = self.criterion:forward(outputs, self.labels)
 --        err = err/self.inputs:size(1)
         e_error = e_error + err
+        e_predictions = e_predictions + self:_calculateError(outputs, self.labels)
+        i_count = i_count + outputs:size(1)
         self.model:backward(self.inputs, self.criterion:backward(outputs, self.labels))
         -- apply gradient clipping
-        self.m_grad_params:apply(grad_clip)
+        self.m_grad_params:clamp(CLIP_MIN, CLIP_MAX)
+        grad_clips_acc = self.m_grad_params:eq(1):cat(self.m_grad_params:eq(-1)):sum() + grad_clips_acc
+--        print("Max gradient: " .. self.m_grad_params:max())
+--        print("Min gradient: " .. self.m_grad_params:min())
+--        print("Average gradient: " .. self.m_grad_params:sum() / self.m_grad_params:nElement())
         return err, self.m_grad_params
       end -- feval
       self.optim(feval, self.m_params, opt_params, state)
     end -- mini batch
     collectgarbage()
     print("Epoch has taken " .. sys.clock() - time .. " seconds.")
-    print("Error on training set is: " .. e_error)
+    print("Gradient clippings occured " .. grad_clips_acc)
+    grad_clips_acc = 0
+    print(string.format("Error rate on training set is: %.2f%% and loss is: %.4f",
+      e_predictions/i_count * 100, e_error))
     if not self.conf.validate_every or epoch % self.conf.validate_every == 0 then
       if cv_dataset and not self.e_stopping:validate(self, cv_dataset) then
         print("No lowest validation error was reached -> stopping training.")
@@ -321,6 +339,7 @@ function NeuralNetwork:test(dataset)
   assert(dataset.cols == self.input_size, "Dataset inputs does not match first layer size.")
   local g_error = 0
   local c_error = 0
+  local i_count = 0
   self.model:evaluate()
 --  dataset:startIteration(self.conf.parallel_sequences,
 --                         self.conf.truncate_seq)
@@ -332,15 +351,10 @@ function NeuralNetwork:test(dataset)
     if self.inputs == nil then
       break
     end
-    
-    local o_labels = self.model:forward(self.inputs)
-    c_error = c_error + self.criterion(o_labels, self.labels)
-    for c=1, self.labels:size(1) do
-      local _, l_max =  o_labels[c]:max(1)
-      if l_max[1] ~= self.labels[c] then
-        g_error = g_error + 1
-      end    
-    end    
+    local output = self.model:forward(self.inputs)
+    i_count = i_count + output:size(1)
+    c_error = c_error + self.criterion(output, self.labels)
+    g_error = g_error + self:_calculateError(output, self.labels)
   end
 -- TODO this should be more likely a forward code
 --  while true do
@@ -388,7 +402,7 @@ function NeuralNetwork:test(dataset)
 --    end
 --  end
   collectgarbage()
-  return (g_error / dataset.rows) * 100, c_error
+  return (g_error / i_count) * 100, c_error
 end
 
 function NeuralNetwork:saveModel(filename)
