@@ -1,9 +1,12 @@
 require 'torch'
 require 'nn'
 require 'json'
-require 'lstm'
-require 'blstm'
 require 'optim'
+require 'EarlyStopping'
+require 'Configuration'
+require 'Lstm'
+require 'Blstm'
+
 
 --TODO bptt?
 --TODO gradiend cliping
@@ -12,19 +15,6 @@ require 'optim'
 
 torch.setdefaulttensortype('torch.FloatTensor')
 
--- Firt try to conver to number, then bool otherwise string is returned
--- TODO this can be pretty messy if something goes wrong -> terrible debugging
-function parseConfigOption(val)
-  local num_result = tonumber(val)
-  if num_result ~= nil then
-    return num_result
-  elseif val == "true" then
-    return true
-  elseif val == "false" then
-    return false
-  end
-  return val
-end
 
 CLIP_MIN = - 1.0
 CLIP_MAX = 1.0
@@ -38,52 +28,6 @@ function grad_clip(element)
     return element
   end
 end 
-
-local EarlyStopping = torch.class('EarlyStopping')
-
-function EarlyStopping:__init(history)
-  self.history = history
-  self.w_hist = {}
-  self.e_hist = {}
-  for i=1, history do
-    table.insert(self.w_hist, 0)
-    table.insert(self.e_hist, math.huge)
-  end
-end
-
-function EarlyStopping:getBestWeights()
-  local b_error = math.huge
-  local b_index = -1
-  for i=1,self.history do
-    if b_error > self.e_hist[i] then
-      b_error = self.e_hist[i]
-      b_index = i
-    end
-  end
-  return self.w_hist[b_index]
-end
-
--- attempts to insert new item
--- if possible returns true, false otherwise - learning should stop
-function EarlyStopping:_insert(err, weights)
-  local result = false
-  for i=1, self.history do
-    if err < self.e_hist[i] then
-      self.e_hist[i] = err
-      self.w_hist[i] = weights:clone()
-      result = true
-      break
-    end
-  end
-  return result
-end
-
-function EarlyStopping:validate(net, dataset)
-  local cv_g_error,  cv_c_error= net:test(dataset)
-  print(string.format("Error on cv set set is: %.2f%% and loss is: %.4f",
-   cv_g_error, cv_c_error))
-  return self:_insert(cv_c_error, net.m_params)
-end
 
 local NeuralNetwork = torch.class('NeuralNetwork')
 
@@ -122,7 +66,7 @@ function NeuralNetwork:init()
   self.output_size = self.desc.layers[#self.desc.layers-1].size
   self.input_size = self.desc.layers[1].size
   self.model = nn.Sequential()
-  self:_parseConfig(self.config_file)
+  self.conf = Configuration.new(self.config_file)
   if self.conf.cuda then
     -- load cuda if config says so
     if self.conf.cuda == 1 then
@@ -152,19 +96,7 @@ function NeuralNetwork:init()
   self.m_params, self.m_grad_params = self.model:getParameters()
 end
 
--- Parse configuration file, every line consist of key = value
--- save the config into to the self.conf
-function NeuralNetwork:_parseConfig(conf_filename)
-  local f = assert(io.open(conf_filename, "r"),
-   "Could not open the configuration file: " .. conf_filename)
-  local lines = f:lines()
-  for line in lines do
-    line = line:gsub("%s*", "")
-    local result = line:split("=")
-    self.conf[result[1]] = parseConfigOption(result[2])
-  end
-  f:close()
-end
+
 
 -- TODO input layer needs to be resolved
 function NeuralNetwork:_createLayers()
@@ -198,6 +130,7 @@ function NeuralNetwork:_createLayers()
 end
 
 function NeuralNetwork:_addLayer(layer, p_layer)
+  if p_layer == nil then error("Missing previous layer argument.") end
   if layer.type == NeuralNetwork.INPUT then
     return
   elseif layer.type == NeuralNetwork.FEED_FORWARD_LOGISTIC then
@@ -210,9 +143,9 @@ function NeuralNetwork:_addLayer(layer, p_layer)
     self.model:add(nn.Linear(p_layer.size, layer.size))
     self.model:add(nn.ReLU())
   elseif layer.type == NeuralNetwork.LSTM then
-    self.model:add(Lstm.new(p_layer.size, layer.size, self.conf.truncate_seq))-- layer.batch_normalization))
+    self.model:add(nn.Lstm(p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
   elseif layer.type == NeuralNetwork.BLSTM then
-    self.model:add(Blstm.new(p_layer.size, layer.size, self.conf.truncate_seq)) --layer.batch_normalization))
+    self.model:add(nn.Blstm(p_layer.size, layer.size, self.conf.truncate_seq)) --layer.batch_normalization))
   elseif layer.type == NeuralNetwork.SOFTMAX then
     self.model:add(nn.Linear(p_layer.size, layer.size))
     self.model:add(nn.LogSoftMax())
@@ -252,7 +185,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
     self.model:training()
     print('==> doing epoch ' .. epoch .. ' on training data.')
     local time = sys.clock()
-    dataset:startIteration(self.conf.parallel_sequences,
+    dataset:startRealBatch(self.conf.parallel_sequences,
                            self.conf.truncate_seq,
                            self.conf.shuffle_sequences,
                            true)
@@ -261,14 +194,14 @@ function NeuralNetwork:train(dataset, cv_dataset)
     local i_count = 0
     local grad_clips_acc = 0
     while true do
-      self.inputs, self.labels = dataset:nextBatch()
+      self.inputs, self.labels = dataset:nextRealBatch()
       if self.inputs == nil then
         break
       end
       local feval = function(x)
         collectgarbage()
         -- get new parameters
-        if x ~= self.m_params then
+        if self.m_params ~= x then
           self.m_params:copy(x)
         end
         -- reset gradients
