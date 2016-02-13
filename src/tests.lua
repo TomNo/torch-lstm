@@ -1,8 +1,12 @@
 require 'torch'
 require 'nn'
 require 'rnn'
+require 'cutorch'
+require 'cunn'
+
 
 tester = torch.Tester()
+
 
 classNames = {"LinearScale", "LstmStep", "LstmSteps", "Lstm", "Blstm" }
 
@@ -15,15 +19,15 @@ function testClass(class)
     local bNorm = false
     local instance
     if class.__typename == "nn.Lstm" or class.__typename == "nn.Blstm" then
-        instance = class.new(iSize, lSize, history, bNorm)
+        instance = class.new(iSize, lSize, history, bNorm):cuda()
     else
-        instance = class.new(lSize, bNorm, history)
+        instance = class.new(lSize, bNorm, history):cuda()
     end
     local input
     if class.__typename == "nn.LstmStep" or class.__typename == "nn.LstmSteps" then
-        input = torch.ones(bSize*history, lSize*4)
+        input = torch.ones(bSize*history, lSize*4):cuda()
     else
-        input = torch.ones(bSize*history, lSize)
+        input = torch.ones(bSize*history, lSize):cuda()
     end
 
     local output = instance:forward(input)
@@ -44,6 +48,7 @@ for i=1, #classes do
 end
 
 LstmTest = {}
+
 
 function LstmTest:testBatched()
   local iSize = 3
@@ -118,7 +123,49 @@ function LstmTest:testCorrectForwardBackward()
   return 0
 end
 
+
+BlstmTests = {}
+
+function BlstmTests:testBatched()
+    local iSize = 3
+    local oSize = 6
+    local hSize = 3
+    local bSize = 2
+    local b = nn.Blstm(iSize, oSize, hSize)
+    local a = nn.Blstm(iSize, oSize, hSize)
+    local x_b, _ = b:getParameters()
+    local x_a, _ = a:getParameters()
+    x_b:copy(x_a)
+    local inp = torch.ones(hSize, iSize)
+    local result = b:forward(inp):clone()
+    local errs = b:backward(inp, torch.range(1, oSize):repeatTensor(hSize, 1))
+    local e_errs = torch.Tensor(bSize * hSize, iSize)
+    local e_result = torch.Tensor(hSize*bSize, oSize)
+    local y = 1
+    for i=1, bSize*hSize, bSize do
+        e_result[i]:copy(result[y])
+        e_result[i+1]:copy(result[y])
+        e_errs[i]:copy(errs[y])
+        e_errs[i+1]:copy(errs[y])
+        y = y + 1
+    end
+    local batched_inp = torch.ones(bSize*hSize,iSize)
+    local a_result = a:forward(batched_inp)
+    local a_errs = a:backward(batched_inp, torch.range(1,oSize):repeatTensor(6,1))
+    if not torch.all(torch.eq(a_errs, e_errs)) then
+        print(a_errs)
+        print(e_errs)
+        print("Error: Backward pass does not match.")
+    end
+    if not torch.all(torch.eq(a_result, e_result)) then
+        print(a_result)
+        print(e_result)
+        print("Error: Forward pass does not match.")
+    end
+end
+
 tester:add(LstmTest)
+tester:add(BlstmTests)
 
 
 tester:run()

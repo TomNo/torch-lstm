@@ -49,6 +49,27 @@ function LstmSteps:updateOutput(input)
 end
 
 
+function LstmSteps:updateGradInput(input, gradOutput)
+    self.gradInput:resizeAs(input)
+    for i=#self.modules,1,-1 do
+        local interval = {{(i-1) * self.batchSize +1,  i * self.batchSize}}
+        local step = self.modules[i]
+        step:updateGradInput(input[interval], gradOutput[interval])
+        self.gradInput[interval]:copy(step:getGradInput())
+    end
+    return self.gradInput
+end
+
+
+function LstmSteps:accGradParameters(input, gradOutput)
+    for i=#self.modules,1,-1 do
+        local interval = {{(i-1) * self.batchSize +1,  i * self.batchSize}}
+        local step = self.modules[i]
+        step:accGradParameters(input[interval], gradOutput[interval])
+    end
+end
+
+
 function LstmSteps:backward(input, gradOutput)
     self.gradInput:resizeAs(input)
     for i=#self.modules,1,-1 do

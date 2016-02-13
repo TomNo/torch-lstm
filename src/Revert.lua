@@ -2,6 +2,8 @@ require 'torch'
 require 'nn'
 
 
+--TODO this revert migth not be working as expected because of batches
+
 local Revert = torch.class('nn.Revert', 'nn.Module')
 
 
@@ -29,3 +31,5 @@ function Revert:updateOutput(input)
   self:revertTensor(input, self.output)
   return self.output
 end
+
+--eof
