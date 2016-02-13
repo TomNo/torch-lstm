@@ -1,7 +1,5 @@
 require 'torch'
 
---TODO it does not work as expected
-
 
 local EarlyStopping = torch.class('EarlyStopping')
 
@@ -26,21 +24,22 @@ function EarlyStopping:getBestWeights()
             b_index = i
         end
     end
-    return self.w_hist[b_index]
+    return self.w_hist[b_index], b_index, b_error
 end
 
 
 function EarlyStopping:_insert(err, weights)
-    local result = false
-    for i = 1, self.history do
-        if err < self.e_hist[i] then
-            self.e_hist[i] = err
-            self.w_hist[i] = weights:clone()
-            result = true
-            break
-        end
+    local _, b_index, b_error = self:getBestWeights()
+    -- insert new weights on the first position
+    if err < b_error or b_index < self.history then
+        table.insert(self.e_hist, 1, err)
+        table.insert(self.w_hist, 1, weights:clone())
+        self.e_hist[self.history + 1] = nil
+        self.w_hist[self.history + 1] = nil
+        return true
+    else
+        return false
     end
-    return result
 end
 
 
