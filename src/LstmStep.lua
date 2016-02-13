@@ -14,7 +14,7 @@ function LstmStep:__init(layerSize, bNorm)
     -- all input activations
     local i_acts = nn.Identity()
     -- all output activations
-    local o_acts = nn.Sequential():add(nn.Linear(layerSize, 4*layerSize, false))
+    local o_acts = nn.Sequential():add(nn.Linear(layerSize, 4 * layerSize, false))
     --  if self.b_norm then
     --    o_acts:add(nn.BatchNormalization(self.a_count))
     --  end
@@ -32,17 +32,17 @@ function LstmStep:__init(layerSize, bNorm)
     -- that is divided in half
     local io_acts = nn.Sequential()
     io_acts:add(nn.ParallelTable():add(i_acts):add(o_acts))
-    io_acts:add(nn.CAddTable()):add(nn.Reshape(2, 2 * layerSize)):add(nn.SplitTable(1,2))
+    io_acts:add(nn.CAddTable()):add(nn.Reshape(2, 2 * layerSize)):add(nn.SplitTable(1, 2))
     -- sum half of the activations with peepholes
     self:add(nn.ParallelTable():add(io_acts):add(c_acts))
     self:add(nn.FlattenTable())
     -- output of the model at this stage is <c_states + o_acts, i_acts + f_acts, peepholes acts, cell states>
     -- input and forget gate activation
     local items = nn.ConcatTable()
-    items:add(nn.Sequential():add(nn.NarrowTable(2,2)):add(nn.CAddTable()):add(nn.Sigmoid()):add(nn.Reshape(2, layerSize)):add(nn.SplitTable(1,2)))
+    items:add(nn.Sequential():add(nn.NarrowTable(2, 2)):add(nn.CAddTable()):add(nn.Sigmoid()):add(nn.Reshape(2, layerSize)):add(nn.SplitTable(1, 2)))
     items:add(nn.Sequential():add(nn.SelectTable(4)))
---    --  -- divide rest activations between cell state and output gate
-    items:add(nn.Sequential():add(nn.SelectTable(1)):add(nn.Reshape(2, layerSize)):add(nn.SplitTable(1,2)))
+    --    --  -- divide rest activations between cell state and output gate
+    items:add(nn.Sequential():add(nn.SelectTable(1)):add(nn.Reshape(2, layerSize)):add(nn.SplitTable(1, 2)))
     self:add(items)
     self:add(nn.FlattenTable())
     -- output of the model at this stage is <i_acts, f_acts, cell states, c_acts, o_acts>
@@ -52,14 +52,14 @@ function LstmStep:__init(layerSize, bNorm)
     -- apply squashing function to cell state
     items:add(nn.Sequential():add(nn.SelectTable(4)):add(nn.Tanh()))
     -- apply forgeting
-    items:add(nn.Sequential():add(nn.NarrowTable(2,2)):add(nn.CMulTable()))
+    items:add(nn.Sequential():add(nn.NarrowTable(2, 2)):add(nn.CMulTable()))
     -- forward o_acts
     items:add(nn.SelectTable(5))
     -- output of the model at this stage is <i_acts, c_acts, f_acts, o_acts>
     self:add(items)
     items = nn.ConcatTable()
     -- scale cell state by input
-    items:add(nn.Sequential():add(nn.NarrowTable(1,2)):add(nn.CMulTable()))
+    items:add(nn.Sequential():add(nn.NarrowTable(1, 2)):add(nn.CMulTable()))
     -- forward
     items:add(nn.Sequential():add(nn.SelectTable(3)))
     items:add(nn.Sequential():add(nn.SelectTable(4)))
@@ -68,9 +68,9 @@ function LstmStep:__init(layerSize, bNorm)
     self:add(items)
     local tmp = nn.ConcatTable()
     if self.bNorm then
-        tmp:add(nn.Sequential():add(nn.NarrowTable(1,2)):add(nn.CAddTable()):add(nn.BatchNormalization(self.layerSize)))
+        tmp:add(nn.Sequential():add(nn.NarrowTable(1, 2)):add(nn.CAddTable()):add(nn.BatchNormalization(self.layerSize)))
     else
-        tmp:add(nn.Sequential():add(nn.NarrowTable(1,2)):add(nn.CAddTable()))
+        tmp:add(nn.Sequential():add(nn.NarrowTable(1, 2)):add(nn.CAddTable()))
     end
     tmp:add(nn.Sequential():add(nn.SelectTable(3)))
     self.cellActs = tmp
@@ -89,7 +89,7 @@ function LstmStep:__init(layerSize, bNorm)
     self:add(tmp) -- 8th module
     -- output of the model at this stage is <output_gate peephole act, o_acts, cell_acts>
     -- finalize the o_acts and apply sigmoid
-    tmp = nn.ConcatTable():add(nn.Sequential():add(nn.NarrowTable(1,2)):add(nn.CAddTable()):add(nn.Sigmoid()))
+    tmp = nn.ConcatTable():add(nn.Sequential():add(nn.NarrowTable(1, 2)):add(nn.CAddTable()):add(nn.Sigmoid()))
     -- just forward cell acts
     tmp:add(nn.SelectTable(3))
     -- result is <output>
@@ -116,19 +116,19 @@ function LstmStep:updateGradInput(input, gradOutput)
     gradOutput:add(nGradOutput)
     local currentGradOutput = gradOutput
     local currentModule = self.modules[#self.modules]
-    for i=#self.modules-1,1,-1 do
+    for i = #self.modules - 1, 1, -1 do
         local previousModule = self.modules[i]
         -- adding cell deltas
         if currentModule == self.cellActs then
             currentGradOutput[1]:add(nCellGradOutput)
         end
         currentGradOutput = currentModule:updateGradInput(previousModule.output,
-                                                          currentGradOutput)
+            currentGradOutput)
         currentModule.gradInput = currentGradOutput
         currentModule = previousModule
     end
     currentGradOutput = currentModule:updateGradInput(self:currentInput(input),
-                                                      currentGradOutput)
+        currentGradOutput)
     self.gradInput = currentGradOutput
     return currentGradOutput
 end
@@ -180,7 +180,7 @@ function LstmStep:currentInput(input)
         pOutput = zInput
         pCellStates = zInput
     end
-    return {{input, pOutput}, pCellStates}
+    return { { input, pOutput }, pCellStates }
 end
 
 --eof

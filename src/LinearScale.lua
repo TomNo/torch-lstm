@@ -72,8 +72,8 @@ end
 
 function LinearScale:__tostring__()
     return torch.type(self) ..
-        string.format('(%d -> %d)', self.weight:size(1),
-                                    self.weight:size(1))
+            string.format('(%d -> %d)', self.weight:size(1),
+                self.weight:size(1))
 end
 
 
@@ -88,7 +88,7 @@ function testOutput()
         error("LinearScale output is not correct.")
     end
     local bOutput = a:forward(torch.ones(5, layerSize)):eq(w_val):sum()
-    if  bOutput ~= 5*layerSize then
+    if bOutput ~= 5 * layerSize then
         error("LinearScale batched output is not correct.")
     end
 end
@@ -102,7 +102,7 @@ function testBackward()
     local w_val = 0.3
     weigths:fill(w_val)
     local err = b:backward(torch.ones(layerSize), torch.ones(layerSize):fill(w_val))
-    if err:eq(w_val*w_val):sum() ~= layerSize then
+    if err:eq(w_val * w_val):sum() ~= layerSize then
         error("LinearScale backward error does not fit.")
     end
     if g_weights:eq(w_val):sum() ~= layerSize then

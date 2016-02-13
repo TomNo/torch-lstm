@@ -9,31 +9,31 @@ local Blstm = torch.class('nn.Blstm', 'nn.Sequential')
 
 
 function Blstm:__init(inputSize, layerSize, hist, bNorm)
-  assert(layerSize % 2 == 0, "Layer must have even count of neurons.")
-  nn.Sequential.__init(self)
-  local oSize = layerSize / 2
-  self.bNorm = bNorm or false
-  self.layerSize = layerSize
-  self.inputSize = inputSize
-  self.history = hist
-  self:add(nn.Linear(inputSize, self.layerSize * 4)) -- input activations
-  self:add(nn.Split())
-  self.fLstm = nn.LstmSteps(oSize, bNorm, hist)
-  self.bLstm = nn.Sequential()
-  self.bLstm:add(nn.Revert())
-  self.bLstm:add(nn.LstmSteps(oSize, bNorm, hist))
-  self.bLstm:add(nn.Revert())
-  local pTable = nn.ParallelTable()
-  pTable:add(self.fLstm)
-  pTable:add(self.bLstm)
-  self:add(pTable)
-  self:add(nn.JoinTable(2,2))
+    assert(layerSize % 2 == 0, "Layer must have even count of neurons.")
+    nn.Sequential.__init(self)
+    local oSize = layerSize / 2
+    self.bNorm = bNorm or false
+    self.layerSize = layerSize
+    self.inputSize = inputSize
+    self.history = hist
+    self:add(nn.Linear(inputSize, self.layerSize * 4)) -- input activations
+    self:add(nn.Split())
+    self.fLstm = nn.LstmSteps(oSize, bNorm, hist)
+    self.bLstm = nn.Sequential()
+    self.bLstm:add(nn.Revert())
+    self.bLstm:add(nn.LstmSteps(oSize, bNorm, hist))
+    self.bLstm:add(nn.Revert())
+    local pTable = nn.ParallelTable()
+    pTable:add(self.fLstm)
+    pTable:add(self.bLstm)
+    self:add(pTable)
+    self:add(nn.JoinTable(2, 2))
 end
 
 
 function Blstm:__tostring__()
-  return torch.type(self) ..
-      string.format('(%d -> %d, BatchNormalized=%s)', self.inputSize, self.layerSize, self.bNorm)
+    return torch.type(self) ..
+            string.format('(%d -> %d, BatchNormalized=%s)', self.inputSize, self.layerSize, self.bNorm)
 end
 
 --a = Lstm.new(10, 20, 50)

@@ -31,9 +31,9 @@ end
 
 function Lstm:__tostring__()
     return torch.type(self) ..
-      string.format('(%d -> %d, BatchNormalized=%s)', self.inputSize,
-                                                      self.layerSize,
-                                                      self.bNorm)
+            string.format('(%d -> %d, BatchNormalized=%s)', self.inputSize,
+                self.layerSize,
+                self.bNorm)
 end
 
 --function testBatched()
@@ -195,13 +195,13 @@ end
 --print(a.gradWeight)
 
 --a:backward()
-----print("acts")
-----print(a.a_i_acts_module.output)
---print(a:getCellStates(a.modules[2]))
---print(a:getCellStates(a.modules[3]))
---print(a.model:get(8).output[1])
---print(a.model:get(8).output[2])
---print(a.model:get(8).output[3])
+--- -print("acts")
+---- print(a.a_i_acts_module.output)
+-- print(a:getCellStates(a.modules[2]))
+-- print(a:getCellStates(a.modules[3]))
+-- print(a.model:get(8).output[1])
+-- print(a.model:get(8).output[2])
+-- print(a.model:get(8).output[3])
 
 --print(a:getParameters())
 --a.a_i_acts_module:getparameter
