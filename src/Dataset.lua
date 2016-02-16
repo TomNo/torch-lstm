@@ -86,7 +86,7 @@ local TestDs, parentTest = torch.class('TestDs', 'Dataset')
 --end
 
 function TestDs:__init(filename)
-    parentTest.__init(self, filename)
+    self.filename = filename
 end
 
 -- iterator over test structure of hdf5

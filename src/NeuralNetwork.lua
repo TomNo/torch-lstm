@@ -8,8 +8,6 @@ require 'Lstm'
 require 'Blstm'
 
 
---TODO bptt?
---TODO gradiend cliping
 -- TODO procesing sequences by uterrances
 -- TODO ctc https://github.com/fchollet/keras/issues/383
 
@@ -19,7 +17,7 @@ torch.setdefaulttensortype('torch.FloatTensor')
 CLIP_MIN = -1.0
 CLIP_MAX = 1.0
 
-function grad_clip(element)
+local function gradClip(element)
     if element > CLIP_MAX then
         return CLIP_MAX
     elseif element < CLIP_MIN then
@@ -29,7 +27,9 @@ function grad_clip(element)
     end
 end
 
+
 local NeuralNetwork = torch.class('NeuralNetwork')
+
 
 NeuralNetwork.FEED_FORWARD_TANH = "feedforward_tanh"
 NeuralNetwork.FEED_FORWARD_LOGISTIC = "feedforward_logistic"
@@ -41,8 +41,12 @@ NeuralNetwork.LSTM = "lstm"
 NeuralNetwork.BLSTM = "blstm"
 NeuralNetwork.DEFAULT_HISTORY = 5
 
+
 function NeuralNetwork:__init(params, log)
     for key, value in pairs(params) do
+        if self.key then
+            perror("Parameters already exists: " .. key)
+        end
         self[key] = value
     end
     self.desc = nil -- should contain json net topology description
@@ -54,6 +58,7 @@ function NeuralNetwork:__init(params, log)
     self.log = log
     self.log:addTime('NeuralNetwork', '%F %T')
 end
+
 
 function NeuralNetwork:init()
     print("Initializing neural network.")
@@ -145,7 +150,7 @@ function NeuralNetwork:_addLayer(layer, p_layer)
     elseif layer.type == NeuralNetwork.LSTM then
         self.model:add(nn.Lstm(p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.BLSTM then
-        self.model:add(nn.Blstm(p_layer.size, layer.size, self.conf.truncate_seq)) --layer.batch_normalization))
+        self.model:add(nn.Blstm(p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.SOFTMAX then
         self.model:add(nn.Linear(p_layer.size, layer.size))
         self.model:add(nn.LogSoftMax())
@@ -155,9 +160,9 @@ function NeuralNetwork:_addLayer(layer, p_layer)
     if layer.dropout and layer.dropout > 0 then
         self.model:add(nn.Dropout(layer.dropout))
     end
-    if layer.batch_normalization then
-        self.model:add(nn.BatchNormalization(layer.size))
-    end
+--    if layer.batch_normalization then
+--        self.model:add(nn.BatchNormalization(layer.size))
+--    end
 end
 
 function NeuralNetwork:_calculateError(predictions, labels)
@@ -165,7 +170,7 @@ function NeuralNetwork:_calculateError(predictions, labels)
     return preds:typeAs(labels):ne(labels):sum()
 end
 
---TODO add crossvalidation somehow??
+
 function NeuralNetwork:train(dataset, cv_dataset)
     if self.conf.cuda then
         print("Training on GPU.")
@@ -177,8 +182,8 @@ function NeuralNetwork:train(dataset, cv_dataset)
     local opt_params = {
         learningRate = self.conf.learning_rate,
         weightDecay = self.conf.weight_decay,
-        momentum = self.conf.momentum
-        --    learningRateDecay = self.conf.learning_rate_decay
+        momentum = self.conf.momentum,
+--        learningRateDecay = self.conf.learning_rate_decay
     }
     local state = {}
     for epoch = 1, self.conf.max_epochs do
@@ -188,11 +193,11 @@ function NeuralNetwork:train(dataset, cv_dataset)
         dataset:startRealBatch(self.conf.parallel_sequences,
             self.conf.truncate_seq,
             self.conf.shuffle_sequences,
-            true)
+            false)
         local e_error = 0
         local e_predictions = 0
         local i_count = 0
-        local grad_clips_acc = 0
+        local grad_clips_accs = 0
         while true do
             self.inputs, self.labels = dataset:nextRealBatch()
             if self.inputs == nil then
@@ -215,7 +220,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
                 self.model:backward(self.inputs, self.criterion:backward(outputs, self.labels))
                 -- apply gradient clipping
                 self.m_grad_params:clamp(CLIP_MIN, CLIP_MAX)
-                grad_clips_acc = self.m_grad_params:eq(1):cat(self.m_grad_params:eq(-1)):sum() + grad_clips_acc
+                grad_clips_accs = self.m_grad_params:eq(1):cat(self.m_grad_params:eq(-1)):sum() + grad_clips_accs
                 --        print("Max gradient: " .. self.m_grad_params:max())
                 --        print("Min gradient: " .. self.m_grad_params:min())
                 --        print("Average gradient: " .. self.m_grad_params:sum() / self.m_grad_params:nElement())
@@ -225,8 +230,8 @@ function NeuralNetwork:train(dataset, cv_dataset)
         end -- mini batch
         collectgarbage()
         print("Epoch has taken " .. sys.clock() - time .. " seconds.")
-        print("Gradient clippings occured " .. grad_clips_acc)
-        grad_clips_acc = 0
+        print("Gradient clippings occured " .. grad_clips_accs)
+        grad_clips_accs = 0
         print(string.format("Error rate on training set is: %.2f%% and loss is: %.4f",
             e_predictions / i_count * 100, e_error))
         if not self.conf.validate_every or epoch % self.conf.validate_every == 0 then
@@ -240,16 +245,36 @@ function NeuralNetwork:train(dataset, cv_dataset)
     print("Training finished.")
 end
 
-function NeuralNetwork:forward(dataset)
-    assert(dataset.cols == self.input_size,
+function NeuralNetwork:forward(data)
+    assert(data:size(2) == self.input_size,
         "Dataset input does not match first layer size.")
     self.model:evaluate()
-    local outputs = torch.Tensor(dataset.rows, self.output_size)
-    for i = 1, dataset.rows, self.conf.parallel_sequences do
-        local rows = self:_setActualBatchSize(i, dataset)
-        self.inputs:copy(dataset.features[{ { i, i + rows - 1 }, {} }])
-        local labels = self.model:forward(self.inputs)
-        outputs[{ { i, i + rows - 1 }, {} }]:copy(labels) -- TODO there could also be just = labels:float()
+    local outputs = torch.Tensor(data:size(1), self.output_size)
+    local inputs
+    if self.conf.cuda then
+        inputs = torch.CudaTensor()
+    else
+        inputs = torch.FloatTensor()
+    end
+
+    inputs:resize(self.conf.truncate_seq, data:size(2))
+    local lIndex = 0
+    for i=0, data:size(1)-1, self.conf.truncate_seq do
+        if i+self.conf.truncate_seq > data:size(1) then
+            lIndex = i + 1
+            break
+        end
+        inputs:copy(data[{{i+1, i+self.conf.truncate_seq}}])
+        outputs[{{i+1, i + self.conf.truncate_seq}}]:copy(self.model:forward(inputs))
+    end
+    -- do last step
+    if lIndex ~= 0 then
+        local bIndex = data:size(1) - self.conf.truncate_seq + 1
+        inputs:copy(data[{{bIndex, data:size(1)}}])
+        local fOutput = self.model:forward(inputs)
+        fOutput = fOutput[{{lIndex - bIndex + 1, self.conf.truncate_seq}}]
+
+        outputs[{{lIndex, data:size(1)}}]:copy(fOutput)
     end
     collectgarbage()
     return outputs

@@ -11,7 +11,7 @@
             "bias": 1.0,
             "type": "blstm",
             "dropout": 0.0,
-            "batch_normalization": false
+            "batch_normalization": true
         },
         {
             "size": 512,
@@ -19,7 +19,7 @@
             "bias": 1.0,
             "type": "blstm",
             "dropout": 0.0,
-            "batch_normalization": false
+            "batch_normalization": true
         },
         {
             "size": 1940,

@@ -17,6 +17,9 @@ function Blstm:__init(inputSize, layerSize, hist, bNorm)
     self.inputSize = inputSize
     self.history = hist
     self:add(nn.Linear(inputSize, self.layerSize * 4)) -- input activations
+    if bNorm then
+        self:add(nn.BatchNormalization(self.layerSize * 4))
+    end
     self:add(nn.Split())
     self.fLstm = nn.LstmSteps(oSize, bNorm, hist)
     self.bLstm = nn.Sequential()
