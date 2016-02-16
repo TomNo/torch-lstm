@@ -62,8 +62,9 @@ end
 
 function NeuralNetwork:init()
     print("Initializing neural network.")
-    local f = assert(io.open(self.network_file, "r"),
-        "Coult not open the network file: " .. self.network_file)
+    self.conf = Configuration.new(self.config_file)
+    local f = assert(io.open(self.conf.network, "r"),
+        "Coult not open the network file: " .. self.conf.network)
     local net_desc = f:read("*all") -- this is strange might be better way how to read whole file
     f:close()
     -- description just as in the currennt
@@ -71,7 +72,6 @@ function NeuralNetwork:init()
     self.output_size = self.desc.layers[#self.desc.layers - 1].size
     self.input_size = self.desc.layers[1].size
     self.model = nn.Sequential()
-    self.conf = Configuration.new(self.config_file)
     if self.conf.cuda then
         -- load cuda if config says so
         if self.conf.cuda == 1 then
