@@ -1,0 +1,50 @@
+{
+    "layers": [
+        {
+            "size": 120,
+            "name": "fbank",
+            "type": "input"
+        },
+        {
+            "size": 2048,
+            "name": "feedforward_tanh",
+            "bias": 1.0,
+            "type": "feedforward_tanh"
+        },
+        {
+            "size": 2048,
+            "name": "feedforward_tanh",
+            "bias": 1.0,
+            "type": "feedforward_tanh"
+        },
+        {
+            "size": 2048,
+            "name": "feedforward_tanh",
+            "bias": 1.0,
+            "type": "feedforward_tanh"
+        },
+        {
+            "size": 2048,
+            "name": "feedforward_tanh",
+            "bias": 1.0,
+            "type": "feedforward_tanh"
+        },
+        {
+            "size": 2048,
+            "name": "feedforward_tanh",
+            "bias": 1.0,
+            "type": "feedforward_tanh"
+        },
+        {
+            "size": 3966,
+            "name": "output",
+            "bias": 1.0,
+            "type": "softmax"
+        },
+        {
+            "size": 3966,
+            "name": "postoutput",
+            "type": "multiclass_classification"
+        }
+    ]
+}

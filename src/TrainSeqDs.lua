@@ -136,8 +136,7 @@ function TrainSeqDs:_prepareSeqData(restDataIndex)
     local m_count = math.floor(seq:size(1) / self.h_size)
     local shift = (self.h_size / 2)
     local m_s_count = math.floor((seq:size(1) - shift) / self.h_size)
-    local r_data = nil
-    local r_labels = nil
+    local r_data, r_labels
     if restDataIndex ~= nil then
         local o_size = self.seq_data:size(1)
         r_data = self.seq_data[{ { restDataIndex, o_size } }]
@@ -159,7 +158,7 @@ function TrainSeqDs:_prepareSeqData(restDataIndex)
 end
 
 function TrainSeqDs:startRealBatch(b_size, h_size, shuffle, overlap)
-    self:startSeqIteration()
+    self:startSeqIteration(shuffle)
     self.a_seq_index = 1
     self.h_size = h_size
     self.b_size = b_size
