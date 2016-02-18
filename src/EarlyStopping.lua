@@ -18,7 +18,6 @@ end
 
 
 function EarlyStopping:validate(net, dataset)
-    self.counter = self.counter + 1
     local cv_g_error, cv_c_error = net:test(dataset)
 
     print(string.format("Error on cv set set is: %.2f%% and loss is: %.4f",
