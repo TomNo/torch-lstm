@@ -74,18 +74,12 @@ function NeuralNetwork:init()
     self.output_size = self.desc.layers[#self.desc.layers - 1].size
     self.input_size = self.desc.layers[1].size
     if self.conf.cuda then
-        -- load cuda if config says so
-        if self.conf.cuda == 1 then
-            local loadCuda = function()
-                require 'cutorch'
-                require 'cunn'
-            end
-            local cudaEnabled = pcall(loadCuda)
-            if not cudaEnabled then error("Could not load cuda.") end
-            self.conf.cuda = true
-        else
-            self.conf.cuda = false
+        local loadCuda = function()
+            require 'cutorch'
+            require 'cunn'
         end
+        local cudaEnabled = pcall(loadCuda)
+        if not cudaEnabled then error("Could not load cuda.") end
     end
     self.e_stopping = EarlyStopping.new(self.conf.max_epochs_no_best)
     self.model = nn.Sequential()
@@ -189,14 +183,14 @@ function NeuralNetwork:train(dataset, cv_dataset)
         learningRate = self.conf.learning_rate,
         weightDecay = self.conf.weight_decay,
         momentum = self.conf.momentum,
---        learningRateDecay = self.conf.learning_rate_decay
+        learningRateDecay = self.conf.learning_rate_decay
     }
     local state = {}
     for epoch = 1, self.conf.max_epochs do
         self.model:training()
         print('==> doing epoch ' .. epoch .. ' on training data.')
         local time = sys.clock()
-        dataset:startRealBatch(self.conf.parallel_sequences,
+        dataset:startBatchIteration(self.conf.parallel_sequences,
             self.conf.truncate_seq,
             self.conf.shuffle_sequences,
             false)
@@ -205,7 +199,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
         local i_count = 0
         local grad_clips_accs = 0
         while true do
-            self.inputs, self.labels = dataset:nextRealBatch()
+            self.inputs, self.labels = dataset:nextBatch()
             if self.inputs == nil then
                 break
             end
@@ -247,6 +241,14 @@ function NeuralNetwork:train(dataset, cv_dataset)
                 break
             end
         end
+        if self.conf.autosave then
+            local prefix = ""
+            if self.conf.autosave_prefix then
+                prefix = self.conf.autosave_prefix .. "_"
+            end
+            self:saveWeights(prefix .. "epoch_" .. epoch .. ".weights")
+        end
+
     end -- epoch
     print("Training finished.")
 end
@@ -307,13 +309,9 @@ function NeuralNetwork:test(dataset)
     local c_error = 0
     local i_count = 0
     self.model:evaluate()
-    --  dataset:startIteration(self.conf.parallel_sequences,
-    --                         self.conf.truncate_seq)
-
-    --  dataset:startSeqIteration()
-    dataset:startRealBatch(self.conf.parallel_sequences, self.conf.truncate_seq, false, false)
+    dataset:startBatchIteration(self.conf.parallel_sequences, self.conf.truncate_seq, false, false)
     while true do
-        self.inputs, self.labels = dataset:nextRealBatch()
+        self.inputs, self.labels = dataset:nextBatch()
         if self.inputs == nil then
             break
         end
@@ -373,6 +371,7 @@ end
 
 
 function NeuralNetwork:saveWeights(filename)
+    print("Saving weights into: " .. filename)
     torch.save(filename, self.m_params)
 end
 
