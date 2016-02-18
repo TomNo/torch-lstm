@@ -115,24 +115,27 @@ function TrainSeqDs:getSeq()
     return self.data, self.labels
 end
 
---function TrainSeqDs:startBatchIterationa(b_size, h_size, shuffle)
---  self.m_b_count = 2 * math.floor(self.rows / (h_size * b_size)) - 1
---  if shuffle then
---    self.samples = torch.randperm(2*(math.floor(self.rows / h_size) - 1))
---  else
---    self.samples = torch.range(1, 2*(math.floor(self.rows / h_size) - 1))
---  end
---  self.index = 1
---  self.h_size = h_size
---  self.b_size = b_size
---  self.a_b_count = 1
---end
 
 function TrainSeqDs:_prepareSeqData(restDataIndex)
     local seq, labels = self:getSeq()
     if not seq then
         return false
     end
+    --duplicate data that does not form minibatch
+    local m_count = math.floor(seq:size(1) / self.h_size)
+    local overhang = seq:size(1) % self.h_size
+    if overhang > 0 then
+        seq:resize(self.h_size * (m_count + 1), seq:size(2))
+        labels:resize(self.h_size * (m_count + 1))
+        local e = self.h_size * m_count + overhang
+        local s = e - self.h_size + 1
+        local from = {{s, e }}
+        local to = {{self.h_size * m_count + 1, seq:size(1) }}
+        seq[to]:copy(seq[from]:clone())
+        labels[to]:copy(labels[from]:clone())
+        m_count = m_count + 1
+    end
+
     local m_count = math.floor(seq:size(1) / self.h_size)
     local shift = (self.h_size / 2)
     local m_s_count = math.floor((seq:size(1) - shift) / self.h_size)
@@ -157,19 +160,19 @@ function TrainSeqDs:_prepareSeqData(restDataIndex)
     return true
 end
 
-function TrainSeqDs:startRealBatch(b_size, h_size, shuffle, overlap)
+function TrainSeqDs:startBatchIteration(b_size, h_size, shuffle, overlap, rShift)
     self:startSeqIteration(shuffle)
     self.a_seq_index = 1
     self.h_size = h_size
     self.b_size = b_size
     self.b_count = h_size * b_size
     self:_prepareSeqData()
-    self.overlap = overlap
+    self.overlap = overlap or false
+    self.rShilt = rShift or false
 end
 
-function TrainSeqDs:nextRealBatch()
+function TrainSeqDs:nextBatch()
     while self.a_seq_index + self.b_count > self.seq_data:size(1) do
-        -- TODO something should be done with the data that does not form minibatch
         local status = self:_prepareSeqData(self.a_seq_index)
         if status then
             self.a_seq_index = 1
@@ -189,49 +192,5 @@ function TrainSeqDs:nextRealBatch()
     return self.data, self.labels
 end
 
-function TrainSeqDs:startIteration(b_size, h_size, shuffle, train)
-    local a = 1
-    local b = 0
-    -- in case of training make mini-sequences overlap
-    if train then
-        a = 2
-        b = 1
-    end
-    self.m_b_count = a * math.floor(self.rows / (h_size * b_size)) - b
-    if shuffle then
-        self.samples = torch.randperm(a * (math.floor(self.rows / h_size)) - b)
-    else
-        self.samples = torch.range(1, a * (math.floor(self.rows / h_size)) - b)
-    end
-    self.index = 1
-    self.h_size = h_size
-    self.b_size = b_size
-    self.a_b_count = 1
-end
-
-function TrainSeqDs:nextBatch()
-    if self.a_b_count > self.m_b_count then
-        return nil
-    end
-    self.data:resize(self.h_size * self.b_size, self.cols)
-    self.labels:resize(self.b_size * self.h_size)
-    for i = 1, self.b_size do
-        local index = self.samples[self.index]
-        local shift = 0
-        if index >= (self.rows / self.h_size) then
-            shift = self.h_size * 0.5
-            index = math.floor(index / 2)
-        end
-        local interval = { (index - 1) * self.h_size + 1 + shift, index * self.h_size + shift }
-        local seq_data, seq_labels = self:_getSeq(interval)
-        for y = 0, self.h_size - 1 do
-            self.labels[y * self.b_size + i] = seq_labels[y + 1]
-            self.data[y * self.b_size + i] = seq_data[y + 1]
-        end
-        self.index = self.index + 1
-    end
-    self.a_b_count = self.a_b_count + 1
-    return self.data, self.labels
-end
 
 --eof
