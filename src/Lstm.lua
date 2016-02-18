@@ -8,7 +8,7 @@ local Lstm = torch.class('nn.Lstm', 'nn.Sequential')
 --TODO there is no support for non batch mode
 --TODO resizing array should be optimized
 --TODO biases arent correct in gates
-
+-- TODO batch normalization -> previous linear layer should not have bias
 
 function Lstm:__init(inputSize, layerSize, hist, bNorm)
     nn.Sequential.__init(self)
@@ -17,15 +17,14 @@ function Lstm:__init(inputSize, layerSize, hist, bNorm)
     self.layerSize = layerSize
     self.inputSize = inputSize
     -- set biases for all units in here -> temporary to one
-    self.iActsModule = nn.Sequential()
-    self.iActsModule:add(nn.Linear(inputSize, aCount))
+    self.iActsModule = nn.Linear(inputSize, aCount)
+    self.iActsModule.bias:fill(1)
+    self:add(self.iActsModule)
     self.bNorm = bNorm or false
     if self.bNorm then
-        self.iActsModule:add(nn.BatchNormalization(aCount))
+        self:add(nn.BatchNormalization(aCount))
     end
-    self.steps = nn.LstmSteps(layerSize, bNorm, hist)
-    self:add(self.iActsModule)
-    self:add(self.steps)
+    self:add(nn.LstmSteps(layerSize, bNorm, hist))
 end
 
 

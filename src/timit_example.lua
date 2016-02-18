@@ -12,10 +12,9 @@ cmd:text()
 cmd:text('Options')
 cmd:option('--forward_pass', false, 'forward pass only')
 cmd:option('--forward_output', '', 'resulting forward pass output file')
-cmd:option('--trained_network', 'timit_network_trained', 'load trained model')
 cmd:option('--config_file', '../timit_config.cfg', 'training configuration file')
 cmd:option('--log_file', 'timit.log', 'log file')
-cmd:option('--output_model', 'timit_network_trained', 'name of the resulting trained model')
+cmd:option('--output_weights', 'model.weights', 'name of the resulting file that contains final model weights')
 cmd:text()
 params = cmd:parse(arg)
 cmd:log(params.log_file, params)
@@ -29,7 +28,6 @@ if params.forward_pass then
 
     local testDs = TestSeqDs(net.conf.test_file)
     local outputDs = OutputDs(params.forward_output)
-    net:loadModel(params.trained_network)
     while true do
         local seq = testDs:getSeq()
         if seq then
@@ -44,7 +42,7 @@ else
     local train_ds = TrainSeqDs(net.conf.train_file, net.conf.cuda, true)
     local val_ds = TrainSeqDs(net.conf.val_file, net.conf.cuda, true)
     net:train(train_ds, val_ds)
-    net:saveModel(params.output_model)
+    net:saveWeights(params.output_weights)
 end
 
 

@@ -9,7 +9,9 @@ require 'Blstm'
 
 
 -- TODO procesing sequences by uterrances
--- TODO ctc https://github.com/fchollet/keras/issues/383
+-- TODO autosave weights
+-- TODO baidu ctc https://github.com/baidu-research/warp-ctc/blob/master/torch_binding/TUTORIAL.md
+-- TODO forward pass is terribly slow
 
 torch.setdefaulttensortype('torch.FloatTensor')
 
@@ -71,7 +73,6 @@ function NeuralNetwork:init()
     self.desc = json.decode(net_desc)
     self.output_size = self.desc.layers[#self.desc.layers - 1].size
     self.input_size = self.desc.layers[1].size
-    self.model = nn.Sequential()
     if self.conf.cuda then
         -- load cuda if config says so
         if self.conf.cuda == 1 then
@@ -87,10 +88,16 @@ function NeuralNetwork:init()
         end
     end
     self.e_stopping = EarlyStopping.new(self.conf.max_epochs_no_best)
+    self.model = nn.Sequential()
     self:_createLayers()
+    self.m_params, self.m_grad_params = self.model:getParameters()
+    if self.conf.weights then
+        self:loadWeights(self.conf.weights)
+    else
+        self.model:reset(self.conf.weights_uniform_max)
+    end
     print("Model:")
     print(self.model)
-    self.model:reset(self.conf.weights_uniform_max)
     if self.conf.optimizer == "rmsprop" then
         self.optim = optim.rmsprop
     elseif self.conf.optimizer == "adadelta" then
@@ -98,12 +105,9 @@ function NeuralNetwork:init()
     else
         self.optim = optim.sgd
     end
-    self.m_params, self.m_grad_params = self.model:getParameters()
 end
 
 
-
--- TODO input layer needs to be resolved
 function NeuralNetwork:_createLayers()
     if self.desc.layers == nil then
         error("Missing layers section in " .. self.network_file .. ".")
@@ -133,6 +137,7 @@ function NeuralNetwork:_createLayers()
         self.model = self.model:cuda()
     end
 end
+
 
 function NeuralNetwork:_addLayer(layer, p_layer)
     if p_layer == nil then error("Missing previous layer argument.") end
@@ -164,6 +169,7 @@ function NeuralNetwork:_addLayer(layer, p_layer)
 --        self.model:add(nn.BatchNormalization(layer.size))
 --    end
 end
+
 
 function NeuralNetwork:_calculateError(predictions, labels)
     local _, preds = predictions:max(2)
@@ -245,6 +251,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
     print("Training finished.")
 end
 
+
 function NeuralNetwork:forward(data)
     assert(data:size(2) == self.input_size,
         "Dataset input does not match first layer size.")
@@ -280,18 +287,19 @@ function NeuralNetwork:forward(data)
     return outputs
 end
 
+
 -- calculates actual minibatch size and resize self.inputs and self.labels
 -- return mini batch size
-function NeuralNetwork:_setActualBatchSize(i, ds)
-    local rows = math.min(i + self.conf.parallel_sequences, ds.rows + 1) - i
-    if self.inputs:size(1) ~= rows then
-        self.inputs:resize(rows, self.input_size)
-    end
-    if ds.labels and self.labels:size(1) ~= rows then
-        self.labels:resize(rows)
-    end
-    return rows
-end
+--function NeuralNetwork:_setActualBatchSize(i, ds)
+--    local rows = math.min(i + self.conf.parallel_sequences, ds.rows + 1) - i
+--    if self.inputs:size(1) ~= rows then
+--        self.inputs:resize(rows, self.input_size)
+--    end
+--    if ds.labels and self.labels:size(1) ~= rows then
+--        self.labels:resize(rows)
+--    end
+--    return rows
+--end
 
 function NeuralNetwork:test(dataset)
     assert(dataset.cols == self.input_size, "Dataset inputs does not match first layer size.")
@@ -363,11 +371,14 @@ function NeuralNetwork:test(dataset)
     return (g_error / i_count) * 100, c_error
 end
 
-function NeuralNetwork:saveModel(filename)
-    torch.save(filename, self.model)
+
+function NeuralNetwork:saveWeights(filename)
+    torch.save(filename, self.m_params)
 end
 
-function NeuralNetwork:loadModel(filename)
-    self.model = torch.load(filename)
+
+function NeuralNetwork:loadWeights(filename)
+    print("Loading weights from file: " .. filename)
+    self.m_params:copy(torch.load(filename))
 end
 
