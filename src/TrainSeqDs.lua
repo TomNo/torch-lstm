@@ -117,9 +117,13 @@ end
 
 
 function TrainSeqDs:_prepareSeqData(restDataIndex)
-    local seq, labels = self:getSeq()
-    if not seq then
-        return false
+    local seq, labels
+    -- ami contains short sequences sometime....
+    while not seq or seq:size(1) < self.h_size do
+        seq, labels = self:getSeq()
+        if not seq then
+            return false
+        end
     end
     -- do random shift of the sequence start so we get a little bit different
     -- sequences in mini batches each time
