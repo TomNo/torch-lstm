@@ -82,20 +82,19 @@ function NeuralNetwork:init()
     end
     self.e_stopping = EarlyStopping.new(self.conf.max_epochs_no_best)
     if self.conf.model then
-        self.model = torch.load(self.conf.model)
+        self:loadModel(self.conf.model)
         self:_addCriterion(self.desc.layers[#self.desc.layers])
     else
         self.model = nn.Sequential()
         self:_createLayers()
+        if self.conf.weights then
+            self:loadWeights(self.conf.weights)
+        else
+            self.model:reset(self.conf.weights_uniform_max)
+        end
     end
 
     self.m_params, self.m_grad_params = self.model:getParameters()
-
-    if self.conf.weights then
-        self:loadWeights(self.conf.weights)
-    else
-        self.model:reset(self.conf.weights_uniform_max)
-    end
     print("Model:")
     print(self.model)
     if self.conf.optimizer == "rmsprop" then
@@ -203,7 +202,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
         dataset:startBatchIteration(self.conf.parallel_sequences,
             self.conf.truncate_seq,
             self.conf.shuffle_sequences,
-            false)
+            self.conf.random_shift)
         local e_error = 0
         local e_predictions = 0
         local i_count = 0
@@ -244,14 +243,16 @@ function NeuralNetwork:train(dataset, cv_dataset)
         grad_clips_accs = 0
         print(string.format("Error rate on training set is: %.2f%% and loss is: %.4f",
             e_predictions / i_count * 100, e_error))
-        if not self.conf.validate_every or epoch % self.conf.validate_every == 0 then
-            if cv_dataset and not self.e_stopping:validate(self, cv_dataset) then
-                print("No lowest validation error was reached -> stopping training.")
-                self.m_params:copy(self.e_stopping:getBestWeights())
-                break
+        --autosave model or weights
+        if self.conf.autosave_model then
+            local prefix = ""
+            if self.conf.autosave_prefix then
+                prefix = self.conf.autosave_prefix .. "_"
             end
+            self:saveModel(prefix .. "epoch_" .. epoch .. ".model")
         end
-        if self.conf.autosave then
+
+        if self.conf.autosave_weights then
             local prefix = ""
             if self.conf.autosave_prefix then
                 prefix = self.conf.autosave_prefix .. "_"
@@ -259,41 +260,40 @@ function NeuralNetwork:train(dataset, cv_dataset)
             self:saveWeights(prefix .. "epoch_" .. epoch .. ".weights")
         end
 
+        if not self.conf.validate_every or epoch % self.conf.validate_every == 0 then
+            if cv_dataset and not self.e_stopping:validate(self, cv_dataset) then
+                print("No lowest validation error was reached -> stopping training.")
+                self.m_params:copy(self.e_stopping:getBestWeights())
+                break
+            end
+        end
     end -- epoch
     print("Training finished.")
 end
 
 
+-- put whole sequence in one batch
 function NeuralNetwork:forward(data)
     assert(data:size(2) == self.input_size,
         "Dataset input does not match first layer size.")
     self.model:evaluate()
+    local bCount = math.floor(data:size(1)/self.conf.truncate_seq)
+    local overhang = data:size(1) % self.conf.truncate_seq
+    local iCount = self.conf.truncate_seq * bCount
     local outputs = torch.Tensor(data:size(1), self.output_size)
-    local inputs
+    local tmp = data[{{1, iCount}}]:clone()
+    local inputs = tmp:reshape(bCount, self.conf.truncate_seq, data:size(2)):transpose(1,2):reshape(iCount, data:size(2))
     if self.conf.cuda then
-        inputs = torch.CudaTensor()
-    else
-        inputs = torch.FloatTensor()
+        inputs = inputs:cuda()
     end
-
-    inputs:resize(self.conf.truncate_seq, data:size(2))
-    local lIndex = 0
-    for i=0, data:size(1)-1, self.conf.truncate_seq do
-        if i+self.conf.truncate_seq > data:size(1) then
-            lIndex = i + 1
-            break
-        end
-        inputs:copy(data[{{i+1, i+self.conf.truncate_seq}}])
-        outputs[{{i+1, i + self.conf.truncate_seq}}]:copy(self.model:forward(inputs))
-    end
-    -- do last step
-    if lIndex ~= 0 then
+    local tOutput = self.model:forward(inputs):reshape(self.conf.truncate_seq, bCount, self.output_size)
+    outputs[{{1, iCount}}]:copy(tOutput:transpose(1,2):reshape(iCount, self.output_size))
+    if overhang > 0 then
         local bIndex = data:size(1) - self.conf.truncate_seq + 1
+        inputs:resize(self.conf.truncate_seq, data:size(2))
         inputs:copy(data[{{bIndex, data:size(1)}}])
-        local fOutput = self.model:forward(inputs)
-        fOutput = fOutput[{{lIndex - bIndex + 1, self.conf.truncate_seq}}]
-
-        outputs[{{lIndex, data:size(1)}}]:copy(fOutput)
+        local tOutput = self.model:forward(inputs)
+        outputs[{{bIndex, data:size(1)}}]:copy(tOutput)
     end
     collectgarbage()
     return outputs
@@ -306,7 +306,8 @@ function NeuralNetwork:test(dataset)
     local c_error = 0
     local i_count = 0
     self.model:evaluate()
-    dataset:startBatchIteration(self.conf.parallel_sequences, self.conf.truncate_seq, false, false)
+    dataset:startBatchIteration(self.conf.parallel_sequences,
+                                self.conf.truncate_seq)
     while true do
         self.inputs, self.labels = dataset:nextBatch()
         if self.inputs == nil then
@@ -336,6 +337,7 @@ end
 
 function NeuralNetwork:saveModel(filename)
     print("Saving model to " .. filename)
+    self.model:clearState()
     torch.save(filename, self.model)
 end
 
