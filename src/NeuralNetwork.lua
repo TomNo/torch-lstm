@@ -9,7 +9,6 @@ require 'Blstm'
 
 
 -- TODO procesing sequences by uterrances
--- TODO autosave weights
 -- TODO baidu ctc https://github.com/baidu-research/warp-ctc/blob/master/torch_binding/TUTORIAL.md
 -- TODO forward pass is terribly slow
 
@@ -82,9 +81,16 @@ function NeuralNetwork:init()
         if not cudaEnabled then error("Could not load cuda.") end
     end
     self.e_stopping = EarlyStopping.new(self.conf.max_epochs_no_best)
-    self.model = nn.Sequential()
-    self:_createLayers()
+    if self.conf.model then
+        self.model = torch.load(self.conf.model)
+        self:_addCriterion(self.desc.layers[#self.desc.layers])
+    else
+        self.model = nn.Sequential()
+        self:_createLayers()
+    end
+
     self.m_params, self.m_grad_params = self.model:getParameters()
+
     if self.conf.weights then
         self:loadWeights(self.conf.weights)
     else
@@ -101,6 +107,17 @@ function NeuralNetwork:init()
     end
 end
 
+function NeuralNetwork:_addCriterion(layer)
+    if layer.type == NeuralNetwork.MULTICLASS_CLASSIFICATION then
+        self.criterion = nn.ClassNLLCriterion()
+        if self.conf.cuda then
+            self.criterion = self.criterion:cuda()
+        end
+    else
+        error("Unknown objective function " .. layer["type"] .. ".")
+    end
+end
+
 
 function NeuralNetwork:_createLayers()
     if self.desc.layers == nil then
@@ -114,17 +131,10 @@ function NeuralNetwork:_createLayers()
             end
             self:_addLayer(self.desc.layers[index], self.desc.layers[index - 1])
         elseif index == #self.desc.layers then -- last layer is objective function
-        if layer.name == nil or layer.size == nil or layer.type == nil then
-            error("Layer number: " .. index .. " is missing required attribute.")
-        end
-        if layer.type == NeuralNetwork.MULTICLASS_CLASSIFICATION then
-            self.criterion = nn.ClassNLLCriterion()
-            if self.conf.cuda then
-                self.criterion = self.criterion:cuda()
+            if layer.type == nil then
+                error("Layer number: " .. index .. " is missing required attribute.")
             end
-        else
-            error("Unknown objective function " .. layer["type"] .. ".")
-        end
+            self:_addCriterion(layer)
         end
     end
     if self.conf.cuda then
@@ -290,19 +300,6 @@ function NeuralNetwork:forward(data)
 end
 
 
--- calculates actual minibatch size and resize self.inputs and self.labels
--- return mini batch size
---function NeuralNetwork:_setActualBatchSize(i, ds)
---    local rows = math.min(i + self.conf.parallel_sequences, ds.rows + 1) - i
---    if self.inputs:size(1) ~= rows then
---        self.inputs:resize(rows, self.input_size)
---    end
---    if ds.labels and self.labels:size(1) ~= rows then
---        self.labels:resize(rows)
---    end
---    return rows
---end
-
 function NeuralNetwork:test(dataset)
     assert(dataset.cols == self.input_size, "Dataset inputs does not match first layer size.")
     local g_error = 0
@@ -320,51 +317,6 @@ function NeuralNetwork:test(dataset)
         c_error = c_error + self.criterion(output, self.labels)
         g_error = g_error + self:_calculateError(output, self.labels)
     end
-    -- TODO this should be more likely a forward code
-    --  while true do
-    --    self.inputs, self.labels = dataset:getSeq()
-    --    if self.inputs == nil then
-    --      break
-    --    end
-    --    o_labels:resize(self.inputs:size(1), self.output_size)
-    --    local it = 1
-    --    while true do
-    --      local e_int = it + self.conf.truncate_seq - 1
-    --      local diff = e_int - self.inputs:size(1)
-    --      if  diff >= self.conf.truncate_seq then
-    --        break -- next mini sequences is entirely behind current seq maximum
-    --      elseif diff > 0 then
-    --        e_int = self.inputs:size(1) -- make it end at the whole sequence end
-    --      end
-    --
-    --      local interval = {{it, e_int},{}}
-    --      o_labels[interval] = self.model:forward(self.inputs[interval])
-    --
-    --      it = it + self.conf.truncate_seq
-    --    end
-    --    c_error = c_error + self.criterion(o_labels, self.labels)
-    --    for c=1, self.labels:size(1) do
-    --      local _, l_max =  o_labels[c]:max(1)
-    --      if l_max[1] ~= self.labels[c] then
-    --        g_error = g_error + 1
-    --      end
-    --    end
-    --  end
-    -- TODO refactor
-    --  while true do
-    --    self.inputs, self.labels = dataset:nextBatch()
-    --    if self.inputs == nil then
-    --      break
-    --    end
-    --    local o_labels = self.model:forward(self.inputs)
-    --    c_error = c_error + self.criterion(o_labels, self.labels)
-    --    for c=1, o_labels:size(1) do
-    --      local _, l_max =  o_labels[c]:max(1)
-    --      if l_max[1] ~= self.labels[c] then
-    --        g_error = g_error + 1
-    --      end
-    --    end
-    --  end
     collectgarbage()
     return (g_error / i_count) * 100, c_error
 end
@@ -381,3 +333,18 @@ function NeuralNetwork:loadWeights(filename)
     self.m_params:copy(torch.load(filename))
 end
 
+
+function NeuralNetwork:saveModel(filename)
+    print("Saving model to " .. filename)
+    torch.save(filename, self.model)
+end
+
+
+function NeuralNetwork:loadModel(filename)
+    print("Loading model from " .. filename)
+    self.model = torch.load(filename)
+    self.m_params, self.m_grad_params = self.model:getParameters()
+end
+
+
+--eof

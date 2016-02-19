@@ -14,7 +14,8 @@ cmd:option('--forward_pass', false, 'forward pass only')
 cmd:option('--forward_output', '', 'resulting forward pass output file')
 cmd:option('--config_file', '../timit_config.cfg', 'training configuration file')
 cmd:option('--log_file', 'timit.log', 'log file')
-cmd:option('--output_weights', 'model.weights', 'name of the resulting file that contains final model weights')
+cmd:option('--output_weights', 'final.weights', 'name of the resulting file that contains final model weights')
+cmd:option('--output_model', 'final.model', 'name of the resulting serialized model')
 cmd:text()
 params = cmd:parse(arg)
 cmd:log(params.log_file, params)
@@ -25,7 +26,7 @@ if params.forward_pass then
     if params.forward_output == '' then
         error("Missing forward output file.")
     end
-
+    print("Computing forward pass for all sequences.")
     local testDs = TestSeqDs(net.conf.test_file)
     local outputDs = OutputDs(params.forward_output)
     while true do
@@ -42,22 +43,8 @@ else
     local train_ds = TrainSeqDs(net.conf.train_file, net.conf.cuda, true)
     local val_ds = TrainSeqDs(net.conf.val_file, net.conf.cuda, true)
     net:train(train_ds, val_ds)
+    net:saveModel(params.output_model)
     net:saveWeights(params.output_weights)
 end
 
-
---train_ds = TrainSeqDs(net.conf.train_file, net.conf.cuda)
-
---cv_ds = TrainDs(net.conf.val_file)
---cv_data = cv_ds:get(4096)
---test_ds = TestDs(net.conf.test_file)
---test_data = test_ds:get(4096)
-
-
---local output = net:forward(test_data)
---output_ds = TestDs('timit_result')
---output_ds:save(output, test_data.tags)
---print("training done")
-
-
-
+--eof
