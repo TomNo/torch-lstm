@@ -121,6 +121,14 @@ function TrainSeqDs:_prepareSeqData(restDataIndex)
     if not seq then
         return false
     end
+    -- do random shift of the sequence start so we get a little bit different
+    -- sequences in mini batches each time
+    if self.rShift then
+        local shift = math.random(1, self.h_size - 1)
+        seq = seq[{{shift, seq:size(1)}}]
+        labels = labels[{{shift, labels:size(1)}}]
+    end
+
     --duplicate data that does not form minibatch
     local m_count = math.floor(seq:size(1) / self.h_size)
     local overhang = seq:size(1) % self.h_size
@@ -160,7 +168,8 @@ function TrainSeqDs:_prepareSeqData(restDataIndex)
     return true
 end
 
-function TrainSeqDs:startBatchIteration(b_size, h_size, shuffle, overlap, rShift)
+function TrainSeqDs:startBatchIteration(b_size, h_size, shuffle, rShift,
+                                        overlap)
     self:startSeqIteration(shuffle)
     self.a_seq_index = 1
     self.h_size = h_size
