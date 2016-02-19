@@ -27,11 +27,6 @@ end
 
 
 function LstmSteps:updateOutput(input)
-    if not self.train and input:size(1) < self.history then
-        -- there can be sequence that is shorter than required history
-        self.historyBackup = self.history
-        self.history = input:size(1)
-    end
     self.batchSize = input:size(1) / self.history
     self.output:resize(input:size(1), self.layerSize)
     for i = 1, input:size(1) / self.batchSize do
@@ -39,10 +34,6 @@ function LstmSteps:updateOutput(input)
         local interval = { { (i - 1) * self.batchSize + 1, i * self.batchSize } }
         step:forward(input[interval])
         self.output[interval]:copy(step.output)
-    end
-    if not self.train and self.historyBackup then
-        self.history = self.historyBackup
-        self.historyBackup = nil
     end
     return self.output
 end
