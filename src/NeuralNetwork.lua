@@ -76,6 +76,8 @@ function NeuralNetwork:init()
         local loadCuda = function()
             require 'cutorch'
             require 'cunn'
+            local deviceId = os.getenv("CUDA_VISIBLE_DEVICES") or 1
+            cutorch.setDevice(deviceId)
         end
         local cudaEnabled = pcall(loadCuda)
         if not cudaEnabled then error("Could not load cuda.") end
