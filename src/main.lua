@@ -14,7 +14,6 @@ cmd:option('--forward_pass', false, 'forward pass only')
 cmd:option('--forward_output', '', 'resulting forward pass output file')
 cmd:option('--config_file', '../timit_config.cfg', 'training configuration file')
 cmd:option('--log_file', 'timit.log', 'log file')
-cmd:option('--output_weights', 'final.weights', 'name of the resulting file that contains final model weights')
 cmd:option('--output_model', 'final.model', 'name of the resulting serialized model')
 cmd:text()
 params = cmd:parse(arg)
@@ -44,7 +43,6 @@ else
     local val_ds = TrainSeqDs(net.conf.val_file, net.conf.cuda, true)
     net:train(train_ds, val_ds)
     net:saveModel(params.output_model)
-    net:saveWeights(params.output_weights)
 end
 
 --eof
