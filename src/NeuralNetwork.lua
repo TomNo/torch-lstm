@@ -82,8 +82,6 @@ function NeuralNetwork:init()
             if not deviceId then
                 print("CUDA_VISIBLE_DEVICES does not exist, setting device id to 1.")
                 deviceId = 1
-            else
-                deviceId = deviceId + 1
             end
             print("Trying to set cuda device: " .. deviceId)
             cutorch.setDevice(deviceId)
