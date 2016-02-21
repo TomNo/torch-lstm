@@ -98,6 +98,7 @@ function NeuralNetwork:init()
     end
 
     self.m_params, self.m_grad_params = self.model:getParameters()
+    print("Model contains " .. self.m_params:size(1) .. " weights.")
     print("Model:")
     print(self.model)
     if self.conf.optimizer == "rmsprop" then
