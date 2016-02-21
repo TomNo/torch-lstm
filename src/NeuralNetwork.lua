@@ -77,10 +77,11 @@ function NeuralNetwork:init()
             require 'cutorch'
             require 'cunn'
             local deviceId = os.getenv("CUDA_VISIBLE_DEVICES") or 1
+            print("Trying to set cuda device: " .. deviceId)
             cutorch.setDevice(deviceId)
         end
         local cudaEnabled = pcall(loadCuda)
-        if not cudaEnabled then error("Could not load cuda.") end
+        if not cudaEnabled then print("Could not load cuda.Proceeding anyway.") end
     end
     self.e_stopping = EarlyStopping.new(self.conf.max_epochs_no_best)
     if self.conf.model then
