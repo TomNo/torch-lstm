@@ -85,6 +85,8 @@ function NeuralNetwork:init()
             end
             print("Trying to set cuda device: " .. deviceId)
             cutorch.setDevice(deviceId)
+            local _, aMem = cutorch.getMemoryUsage()
+            print("Available memory is: " .. aMem)
         end
         local cudaEnabled = pcall(loadCuda)
         if not cudaEnabled then print("Could not load cuda.Proceeding anyway.") end
