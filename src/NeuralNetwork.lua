@@ -77,6 +77,11 @@ function NeuralNetwork:init()
             require 'cutorch'
             require 'cunn'
             local deviceId = os.getenv("CUDA_VISIBLE_DEVICES") or 1
+            -- it is pretty confusing as sometime is enough to set the
+            -- id from the variable and sometime it is necessary to iterate
+            if deviceId == 0 then
+                deviceId = deviceId + 1
+            end
             print("Trying to set cuda device: " .. deviceId)
             cutorch.setDevice(deviceId)
         end
