@@ -58,12 +58,12 @@ function NeuralNetwork:__init(params, log)
     self.m_grad_params = nil -- model gradients
     self.log = log
     self.log:addTime('NeuralNetwork', '%F %T')
+    self.conf = Configuration.new(self.config_file)
 end
 
 
 function NeuralNetwork:init()
     print("Initializing neural network.")
-    self.conf = Configuration.new(self.config_file)
     local f = assert(io.open(self.conf.network, "r"),
         "Coult not open the network file: " .. self.conf.network)
     local net_desc = f:read("*all") -- this is strange might be better way how to read whole file
