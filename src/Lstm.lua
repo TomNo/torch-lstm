@@ -1,6 +1,7 @@
 require 'torch'
 require 'nn'
-require 'LstmSteps'
+require 'Steps'
+require 'LstmStep'
 
 
 local Lstm = torch.class('nn.Lstm', 'nn.Sequential')
@@ -24,7 +25,8 @@ function Lstm:__init(inputSize, layerSize, hist, bNorm)
     if self.bNorm then
         self:add(nn.BatchNormalization(aCount))
     end
-    self:add(nn.LstmSteps(layerSize, bNorm, hist))
+    local step = nn.LstmStep(layerSize, bNorm)
+    self:add(nn.Steps(step, hist))
 end
 
 
