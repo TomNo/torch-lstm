@@ -8,7 +8,7 @@ require 'cunn'
 tester = torch.Tester()
 
 
-classNames = { "LinearScale", "LstmStep", "LstmSteps", "Lstm", "Blstm" }
+classNames = { "LinearScale", "LstmStep", "Lstm", "Blstm" }
 
 
 function testClass(class)
@@ -24,7 +24,7 @@ function testClass(class)
         instance = class.new(lSize, bNorm, history):cuda()
     end
     local input
-    if class.__typename == "nn.LstmStep" or class.__typename == "nn.LstmSteps" then
+    if class.__typename == "nn.LstmStep" then
         input = torch.ones(bSize * history, lSize * 4):cuda()
     else
         input = torch.ones(bSize * history, lSize):cuda()
@@ -38,7 +38,7 @@ for i = 1, #classNames do
     require(classNames[i])
 end
 
-classes = { nn.LinearScale, nn.LstmStep, nn.LstmSteps, nn.Lstm, nn.Blstm }
+classes = { nn.LinearScale, nn.LstmStep, nn.Lstm, nn.Blstm }
 
 for i = 1, #classes do
     local testFunction = function()

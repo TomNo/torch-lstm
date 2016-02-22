@@ -1,8 +1,9 @@
 require 'torch'
 require 'nn'
-require 'Lstm'
 require 'Revert'
 require 'Split'
+require 'LstmStep'
+require 'Steps'
 
 
 local Blstm = torch.class('nn.Blstm', 'nn.Sequential')
@@ -21,10 +22,12 @@ function Blstm:__init(inputSize, layerSize, hist, bNorm)
         self:add(nn.BatchNormalization(self.layerSize * 4))
     end
     self:add(nn.Split())
-    self.fLstm = nn.LstmSteps(oSize, bNorm, hist)
+    local fStep = nn.LstmStep(oSize, bNorm)
+    local bStep = nn.LstmStep(oSize, bNorm)
+    self.fLstm = nn.Steps(fStep, hist)
     self.bLstm = nn.Sequential()
     self.bLstm:add(nn.Revert())
-    self.bLstm:add(nn.LstmSteps(oSize, bNorm, hist))
+    self.bLstm:add(nn.Steps(bStep, hist))
     self.bLstm:add(nn.Revert())
     local pTable = nn.ParallelTable()
     pTable:add(self.fLstm)

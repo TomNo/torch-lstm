@@ -3,18 +3,16 @@ require 'nn'
 require 'LstmStep'
 
 
-local LstmSteps = torch.class("nn.LstmSteps", "nn.Container")
+local Steps = torch.class("nn.Steps", "nn.Container")
 
-function LstmSteps:__init(layerSize, bNorm, history)
+function Steps:__init(step, history)
     nn.Container.__init(self)
     self.history = history or 1
-    self.layerSize = layerSize
-    --module for computing one mini batch in one timestep
-    local fStep = nn.LstmStep(layerSize, bNorm)
+    self.step = step
     -- copies of first step module
-    self:add(fStep)
+    self:add(step)
     for _ = 2, self.history do
-        self:add(fStep:clone('weight', 'bias', 'gradWeight', 'gradBias'))
+        self:add(step:clone('weight', 'bias', 'gradWeight', 'gradBias'))
     end
 
     -- set to every module which module is next and previous
@@ -26,9 +24,9 @@ function LstmSteps:__init(layerSize, bNorm, history)
 end
 
 
-function LstmSteps:updateOutput(input)
+function Steps:updateOutput(input)
     self.batchSize = input:size(1) / self.history
-    self.output:resize(input:size(1), self.layerSize)
+    self.output:resize(input:size(1), self.step.layerSize)
     for i = 1, input:size(1) / self.batchSize do
         local step = self.modules[i]
         local interval = { { (i - 1) * self.batchSize + 1, i * self.batchSize } }
@@ -39,7 +37,7 @@ function LstmSteps:updateOutput(input)
 end
 
 
-function LstmSteps:updateGradInput(input, gradOutput)
+function Steps:updateGradInput(input, gradOutput)
     self.gradInput:resizeAs(input)
     for i = #self.modules, 1, -1 do
         local interval = { { (i - 1) * self.batchSize + 1, i * self.batchSize } }
@@ -51,7 +49,7 @@ function LstmSteps:updateGradInput(input, gradOutput)
 end
 
 
-function LstmSteps:accGradParameters(input, gradOutput)
+function Steps:accGradParameters(input, gradOutput)
     for i = #self.modules, 1, -1 do
         local interval = { { (i - 1) * self.batchSize + 1, i * self.batchSize } }
         local step = self.modules[i]
@@ -60,7 +58,7 @@ function LstmSteps:accGradParameters(input, gradOutput)
 end
 
 
-function LstmSteps:backward(input, gradOutput)
+function Steps:backward(input, gradOutput)
     self.gradInput:resizeAs(input)
     for i = #self.modules, 1, -1 do
         local interval = { { (i - 1) * self.batchSize + 1, i * self.batchSize } }
