@@ -76,15 +76,6 @@ function NeuralNetwork:init()
         local loadCuda = function()
             require 'cutorch'
             require 'cunn'
-            local deviceId = os.getenv("CUDA_VISIBLE_DEVICES")
-            -- it is pretty confusing as sometime is enough to set the
-            -- id from the variable and sometime it is necessary to iterate
-            if not deviceId then
-                print("CUDA_VISIBLE_DEVICES does not exist, setting device id to 1.")
-                deviceId = 1
-            end
-            print("Trying to set cuda device: " .. deviceId)
-            cutorch.setDevice(deviceId)
             local _, aMem = cutorch.getMemoryUsage()
             print("Available memory is: " .. aMem)
         end
