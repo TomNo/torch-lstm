@@ -1,7 +1,6 @@
 require 'torch'
 require 'nn'
-require 'Steps'
-require 'LstmStep'
+require 'LstmSteps'
 
 
 local Lstm = torch.class('nn.Lstm', 'nn.Sequential')
@@ -17,16 +16,14 @@ function Lstm:__init(inputSize, layerSize, hist, bNorm)
     local aCount = 4 * layerSize
     self.layerSize = layerSize
     self.inputSize = inputSize
-    -- set biases for all units in here -> temporary to one
-    self.iActsModule = nn.Linear(inputSize, aCount)
-    self.iActsModule.bias:fill(1)
+    -- no bias
+    self.iActsModule = nn.Linear(inputSize, aCount, false)
     self:add(self.iActsModule)
     self.bNorm = bNorm or false
     if self.bNorm then
         self:add(nn.BatchNormalization(aCount))
     end
-    local step = nn.LstmStep(layerSize, bNorm)
-    self:add(nn.Steps(step, hist))
+    self:add(nn.LstmSteps(layerSize, hist))
 end
 
 

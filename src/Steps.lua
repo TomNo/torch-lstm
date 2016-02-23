@@ -5,14 +5,15 @@ require 'LstmStep'
 
 local Steps = torch.class("nn.Steps", "nn.Container")
 
-function Steps:__init(step, history)
+function Steps:__init(layerSize, history)
     nn.Container.__init(self)
     self.history = history or 1
-    self.step = step
+    self.layerSize = layerSize
+    self:_setStepModule()
     -- copies of first step module
-    self:add(step)
+    self:add(self.step)
     for _ = 2, self.history do
-        self:add(step:clone('weight', 'bias', 'gradWeight', 'gradBias'))
+        self:add(self.step:clone('weight', 'bias', 'gradWeight', 'gradBias'))
     end
 
     -- set to every module which module is next and previous
@@ -21,6 +22,11 @@ function Steps:__init(step, history)
         if i > 1 then step.pStep = function() return self.modules[i - 1] end end
         if i < #self.modules then step.nStep = function() return self.modules[i + 1] end end
     end
+end
+
+
+function Steps:_setStepModule()
+    error("This method must be implemented by superclass.")
 end
 
 

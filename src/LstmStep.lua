@@ -18,10 +18,9 @@ function LstmStep:__init(layerSize)
     -- all input activations
     local i_acts = nn.Identity()
     -- all output activations
-    local o_acts = nn.Sequential():add(nn.Linear(layerSize, 4 * layerSize, false))
-    --  if self.b_norm then
-    --    o_acts:add(nn.BatchNormalization(self.a_count))
-    --  end
+    local o_acts = nn.Sequential():add(nn.Linear(layerSize, 4 * layerSize))
+    -- set bias to 1 because of the forget gate activation
+    o_acts.bias:fill(1)
     --  -- forget and input peepholes cell acts
     --  local fg_peep = nn.Sequential():add(LinearNoBias.new(layerSize, p_count)) -- ERROR
     local fg_peep = nn.Sequential():add(nn.ConcatTable():add(nn.LinearScale(layerSize)):add(nn.LinearScale(layerSize))):add(nn.JoinTable(2))
