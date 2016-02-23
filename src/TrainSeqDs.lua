@@ -198,8 +198,8 @@ function TrainSeqDs:nextBatch()
     local int = { { self.a_seq_index, self.a_seq_index + self.b_count - 1 } }
     local tmp_data = self.seq_data[int]
     local tmp_labels = self.seq_labels[int]
-    self.data:copy(tmp_data:reshape(self.b_size, self.h_size, self.cols):transpose(1, 2):reshape(self.b_count, self.cols))
-    self.labels:copy(tmp_labels:reshape(self.b_size, self.h_size):t():reshape(self.b_count))
+    self.data:copy(tmp_data:view(self.b_size, self.h_size, self.cols):transpose(1, 2):reshape(self.b_count, self.cols))
+    self.labels:copy(tmp_labels:view(self.b_size, self.h_size):t():reshape(self.b_count))
 
     self.a_seq_index = self.a_seq_index + self.b_count
     return self.data, self.labels

@@ -289,17 +289,30 @@ function NeuralNetwork:forward(data)
     assert(data:size(2) == self.input_size,
         "Dataset input does not match first layer size.")
     self.model:evaluate()
+    local oCount = data:size(1)
+    if data:size(1) < self.conf.truncate_seq then
+        local padding = torch.zeros(self.conf.truncate_seq - oCount, data:size(2))
+        data = data:cat(padding, 1)
+    end
+
     local bCount = math.floor(data:size(1)/self.conf.truncate_seq)
     local overhang = data:size(1) % self.conf.truncate_seq
     local iCount = self.conf.truncate_seq * bCount
-    local outputs = torch.Tensor(data:size(1), self.output_size)
+    local outputs = torch.Tensor(oCount, self.output_size)
     local tmp = data[{{1, iCount}}]:clone()
-    local inputs = tmp:reshape(bCount, self.conf.truncate_seq, data:size(2)):transpose(1,2):reshape(iCount, data:size(2))
+    local inputs = tmp:view(bCount, self.conf.truncate_seq, data:size(2)):transpose(1,2):reshape(iCount, data:size(2))
     if self.conf.cuda then
         inputs = inputs:cuda()
     end
-    local tOutput = self.model:forward(inputs):reshape(self.conf.truncate_seq, bCount, self.output_size)
-    outputs[{{1, iCount}}]:copy(tOutput:transpose(1,2):reshape(iCount, self.output_size))
+    local tOutput = self.model:forward(inputs):view(self.conf.truncate_seq, bCount, self.output_size)
+    tOutput = tOutput:transpose(1,2):reshape(iCount, self.output_size)
+    -- dealing with sequences that are shorter than history
+    if data:size(1) ~= oCount then
+        outputs:copy(tOutput[{{1,oCount}}])
+    else
+        outputs[{{1, iCount}}]:copy(tOutput)
+    end
+
     if overhang > 0 then
         local bIndex = data:size(1) - self.conf.truncate_seq + 1
         inputs:resize(self.conf.truncate_seq, data:size(2))
