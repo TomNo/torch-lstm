@@ -180,9 +180,6 @@ function NeuralNetwork:_addLayer(layer, p_layer)
     if layer.dropout and layer.dropout > 0 then
         self.model:add(nn.Dropout(layer.dropout))
     end
---    if layer.batch_normalization then
---        self.model:add(nn.BatchNormalization(layer.size))
---    end
 end
 
 
