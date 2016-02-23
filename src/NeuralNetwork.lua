@@ -89,14 +89,17 @@ function NeuralNetwork:init()
     else
         self.model = nn.Sequential()
         self:_createLayers()
-        if self.conf.weights then
-            self:loadWeights(self.conf.weights)
-        else
-            self.model:reset(self.conf.weights_uniform_max)
-        end
     end
 
     self.m_params, self.m_grad_params = self.model:getParameters()
+
+    if self.conf.weights then
+        self:loadWeights(self.conf.weights)
+    end
+    
+    if not self.conf.model and not self.conf.weights then
+        self.model:reset(self.conf.weights_uniform_max)
+    end
     print("Model contains " .. self.m_params:size(1) .. " weights.")
     print("Model:")
     print(self.model)
