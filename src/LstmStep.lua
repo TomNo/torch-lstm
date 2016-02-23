@@ -2,14 +2,18 @@ require 'torch'
 require 'nn'
 require 'LinearScale'
 
+
+-- INFO no batch norm because it performs worse
+-- http://arxiv.org/pdf/1510.01378.pdf
+
+
 local LstmStep = torch.class('nn.LstmStep', 'nn.Sequential')
 
 --TODO rename variables --> camelCase
-function LstmStep:__init(layerSize, bNorm)
+function LstmStep:__init(layerSize)
     nn.Sequential.__init(self)
     self.cellStates = nil
     self.layerSize = layerSize
-    self.bNorm = bNorm or false
     self.zTensor = torch.zeros(1)
     -- all input activations
     local i_acts = nn.Identity()
@@ -21,9 +25,6 @@ function LstmStep:__init(layerSize, bNorm)
     --  -- forget and input peepholes cell acts
     --  local fg_peep = nn.Sequential():add(LinearNoBias.new(layerSize, p_count)) -- ERROR
     local fg_peep = nn.Sequential():add(nn.ConcatTable():add(nn.LinearScale(layerSize)):add(nn.LinearScale(layerSize))):add(nn.JoinTable(2))
-    --  if self.b_norm then
-    --    fg_peep:add(nn.BatchNormalization(p_count))
-    --  end
     -- add forget and input peepholes
     --  local c_acts = nn.ConcatTable():add(LinearScale.new(layerSize)):add(LinearScale.new(layerSize)):add(nn.Identity())
     local c_acts = nn.ConcatTable():add(fg_peep):add(nn.Identity())
@@ -67,11 +68,7 @@ function LstmStep:__init(layerSize, bNorm)
     -- add previous cell state
     self:add(items)
     local tmp = nn.ConcatTable()
-    if self.bNorm then
-        tmp:add(nn.Sequential():add(nn.NarrowTable(1, 2)):add(nn.CAddTable()):add(nn.BatchNormalization(self.layerSize)))
-    else
-        tmp:add(nn.Sequential():add(nn.NarrowTable(1, 2)):add(nn.CAddTable()))
-    end
+    tmp:add(nn.Sequential():add(nn.NarrowTable(1, 2)):add(nn.CAddTable()))
     tmp:add(nn.Sequential():add(nn.SelectTable(3)))
     self.cellActs = tmp
     self:add(tmp)

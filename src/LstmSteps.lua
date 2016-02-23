@@ -10,7 +10,7 @@ function LstmSteps:__init(layerSize, bNorm, history)
     self.history = history or 1
     self.layerSize = layerSize
     --module for computing one mini batch in one timestep
-    local fStep = nn.LstmStep(layerSize, bNorm)
+    local fStep = nn.LstmStep(layerSize)
     -- copies of first step module
     self:add(fStep)
     for _ = 2, self.history do
