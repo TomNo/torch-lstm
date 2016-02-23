@@ -12,6 +12,7 @@ cmd:text()
 cmd:text('Options')
 cmd:option('--forward_pass', false, 'forward pass only')
 cmd:option('--forward_output', '', 'resulting forward pass output file')
+cmd:option('--forward_input', '', 'forward input file')
 cmd:option('--config_file', '../timit_config.cfg', 'training configuration file')
 cmd:option('--log_file', 'timit.log', 'log file')
 cmd:option('--output_model', 'final.model', 'name of the resulting serialized model')
@@ -23,6 +24,11 @@ net = NeuralNetwork(params, cmd)
 if params.input_model ~= '' then
     net.conf.model = params.input_model
 end
+
+if params.forward_input ~= '' then
+    net.conf.test_file = params.forward_input
+end
+
 net:init()
 
 if params.forward_pass then
