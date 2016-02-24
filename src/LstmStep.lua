@@ -14,28 +14,26 @@ function LstmStep:__init(layerSize, bNorm)
     -- all input activations
     local i_acts = nn.Identity()
     -- all output activations
-    local o_acts = nn.Sequential():add(nn.Linear(layerSize, 4 * layerSize))
+    local o_acts = nn.Linear(layerSize, 4 * layerSize)
     -- set bias to 1 because of the forget gate activation
     o_acts.bias:fill(1)
     --  -- forget and input peepholes cell acts
-    --  local fg_peep = nn.Sequential():add(LinearNoBias.new(layerSize, p_count)) -- ERROR
     local fg_peep = nn.Sequential():add(nn.ConcatTable():add(nn.LinearScale(layerSize)):add(nn.LinearScale(layerSize))):add(nn.JoinTable(2))
     -- add forget and input peepholes
-    --  local c_acts = nn.ConcatTable():add(LinearScale.new(layerSize)):add(LinearScale.new(layerSize)):add(nn.Identity())
     local c_acts = nn.ConcatTable():add(fg_peep):add(nn.Identity())
 
     -- container for summed input and output activations
     -- that is divided in half
     local io_acts = nn.Sequential()
     io_acts:add(nn.ParallelTable():add(i_acts):add(o_acts))
-    io_acts:add(nn.CAddTable()):add(nn.Reshape(2, 2 * layerSize)):add(nn.SplitTable(1, 2))
+    io_acts:add(nn.CAddTable(true)):add(nn.Reshape(2, 2 * layerSize)):add(nn.SplitTable(1, 2))
     -- sum half of the activations with peepholes
     self:add(nn.ParallelTable():add(io_acts):add(c_acts))
     self:add(nn.FlattenTable())
     -- output of the model at this stage is <c_states + o_acts, i_acts + f_acts, peepholes acts, cell states>
     -- input and forget gate activation
     local items = nn.ConcatTable()
-    items:add(nn.Sequential():add(nn.NarrowTable(2, 2)):add(nn.CAddTable()):add(nn.Sigmoid()):add(nn.Reshape(2, layerSize)):add(nn.SplitTable(1, 2)))
+    items:add(nn.Sequential():add(nn.NarrowTable(2, 2)):add(nn.CAddTable(true)):add(nn.Sigmoid()):add(nn.Reshape(2, layerSize)):add(nn.SplitTable(1, 2)))
     items:add(nn.Sequential():add(nn.SelectTable(4)))
     --    --  -- divide rest activations between cell state and output gate
     items:add(nn.Sequential():add(nn.SelectTable(1)):add(nn.Reshape(2, layerSize)):add(nn.SplitTable(1, 2)))
@@ -64,9 +62,9 @@ function LstmStep:__init(layerSize, bNorm)
     self:add(items)
     local tmp = nn.ConcatTable()
     if self.bNorm then
-        tmp:add(nn.Sequential():add(nn.NarrowTable(1, 2)):add(nn.CAddTable()):add(nn.BatchNormalization(self.layerSize)))
+        tmp:add(nn.Sequential():add(nn.NarrowTable(1, 2)):add(nn.CAddTable(true)):add(nn.BatchNormalization(self.layerSize)))
     else
-        tmp:add(nn.Sequential():add(nn.NarrowTable(1, 2)):add(nn.CAddTable()))
+        tmp:add(nn.Sequential():add(nn.NarrowTable(1, 2)):add(nn.CAddTable(true)))
     end
     tmp:add(nn.Sequential():add(nn.SelectTable(3)))
     self.cellActs = tmp
@@ -85,7 +83,7 @@ function LstmStep:__init(layerSize, bNorm)
     self:add(tmp) -- 8th module
     -- output of the model at this stage is <output_gate peephole act, o_acts, cell_acts>
     -- finalize the o_acts and apply sigmoid
-    tmp = nn.ConcatTable():add(nn.Sequential():add(nn.NarrowTable(1, 2)):add(nn.CAddTable()):add(nn.Sigmoid()))
+    tmp = nn.ConcatTable():add(nn.Sequential():add(nn.NarrowTable(1, 2)):add(nn.CAddTable(true)):add(nn.Sigmoid()))
     -- just forward cell acts
     tmp:add(nn.SelectTable(3))
     -- result is <output>
