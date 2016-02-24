@@ -9,8 +9,35 @@ function GruStep:__init(layerSize)
     self.layerSize = layerSize
     self.zTensor = torch.zeros(1)
     -- hidden to hidden activations
-    local hActs = nn.Sequential():add(nn.Linear(layerSize, 2 * layerSize))
-    -- split input activation to two parts - one is going to be used for gates
+    local hActs = nn.Sequential():add(nn.SelectTable(2)):add(nn.Linear(layerSize, 2 * layerSize))
+    local gates = nn.Sequential()
+    local gInputs = nn.ParallelTable()
+    gInputs:add(nn.SelectTable(1))
+    gInputs:add(hActs)
+    gates:add(gInputs)
+    gates:add(nn.CAddTable())
+    gates:add(nn.Sigmoid())
+    gates:add(nn.Split())
+    local gApp = nn.ParallelTable(gates)
+    gApp:add(nn.SelectTable(2))
+    gApp:add(nn.FlattenTable())
+    local concat = nn.ConcatTable()
+
+    gApp:add()
+
+
+    gates:add(nn.Split())
+    -- output of the gates are two tables with activations
+    local container = nn.ParallelTable():add(nn.SelectTable(2)):add(nn.SelectTable(3))
+    local inputs = nn.ConcatTable()
+    inputs:add(gates)
+    inputs:add(container)
+    self:add(inputs)
+    self:add(nn.FlattenTable())
+    -- < update gate, reset gate, previous output, inputActs>
+    self:add(nn.ConcatTable():add(nn.SelectTable(1)):add(nn.NarrowTable(2,2)):add(nn.SelectTable(4)))
+    -- < update gate,
+    local reset =
     -- the other one for input tanh activation
     local sInput = nn.
 
