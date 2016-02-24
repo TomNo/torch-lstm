@@ -28,6 +28,7 @@ end
 function Configuration:_parse(filename)
     local f = assert(io.open(filename, "r"),
         "Could not open the configuration file: " .. filename)
+    print("Running under following configuration:")
     local lines = f:lines()
     for line in lines do
         line = line:gsub("%s*", "")
@@ -36,6 +37,7 @@ function Configuration:_parse(filename)
             error(string.format("Attribute %s, is already present in the configuration.", result[1]))
         else
             self[result[1]] = self:_parseOption(result[2])
+            print(string.format("\t%s = %s", result[1], self[result[1]]))
         end
     end
     f:close()
