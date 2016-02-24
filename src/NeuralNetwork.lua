@@ -205,7 +205,8 @@ function NeuralNetwork:train(dataset, cv_dataset)
         dataset:startBatchIteration(self.conf.parallel_sequences,
             self.conf.truncate_seq,
             self.conf.shuffle_sequences,
-            self.conf.random_shift)
+            self.conf.random_shift,
+            self.conf.overlap)
         local e_error = 0
         local e_predictions = 0
         local i_count = 0
