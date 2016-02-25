@@ -2,8 +2,7 @@ require 'torch'
 require 'nn'
 require 'Revert'
 require 'Split'
-require 'LstmStep'
-require 'Steps'
+require 'GruSteps'
 
 
 local Bgru = torch.class('nn.Bgru', 'nn.Sequential')
@@ -18,15 +17,15 @@ function Bgru:__init(inputSize, layerSize, hist, bNorm)
     self.inputSize = inputSize
     self.history = hist
     -- no bias in input activations
-    self:add(nn.Linear(inputSize, self.layerSize * 4, false))
+    self:add(nn.Linear(inputSize, self.layerSize * 3, false))
     if bNorm then
-        self:add(nn.BatchNormalization(self.layerSize * 4))
+        self:add(nn.BatchNormalization(self.layerSize * 3))
     end
     self:add(nn.Split())
     self.fLstm = nn.GruSteps(oSize, hist)
     self.bLstm = nn.Sequential()
     self.bLstm:add(nn.Revert())
-    self.bLstm:add(nn.Steps(oSize, hist))
+    self.bLstm:add(nn.GruSteps(oSize, hist))
     self.bLstm:add(nn.Revert())
     local pTable = nn.ParallelTable()
     pTable:add(self.fLstm)

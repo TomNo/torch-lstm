@@ -6,8 +6,8 @@ require 'GruStep'
 
 local GruSteps = torch.class("nn.GruSteps", "nn.Steps")
 
-function LstmSteps:_setStepModule()
-    self.step = nn.GruSteps(self.layerSize)
+function GruSteps:_setStepModule()
+    self.step = nn.GruStep(self.layerSize)
 end
 
 

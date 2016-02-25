@@ -1,7 +1,6 @@
 require 'torch'
 require 'nn'
-require 'Steps'
-require 'GruStep'
+require 'GruSteps'
 
 
 -- implemented according to http://arxiv.org/pdf/1412.3555v1.pdf
@@ -23,8 +22,7 @@ function Gru:__init(inputSize, layerSize, hist, bNorm)
     if self.bNorm then
         self:add(nn.BatchNormalization(aCount))
     end
-    local step = nn.GruStep(layerSize)
-    self:add(nn.Steps(step, hist))
+    self:add(nn.GruSteps(layerSize, hist))
 end
 
 
@@ -34,3 +32,6 @@ function Gru:__tostring__()
                 self.layerSize,
                 self.bNorm)
 end
+
+
+--eof

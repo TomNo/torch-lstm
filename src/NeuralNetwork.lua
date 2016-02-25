@@ -6,11 +6,13 @@ require 'EarlyStopping'
 require 'Configuration'
 require 'Lstm'
 require 'Blstm'
+require 'Gru'
+require 'Bgru'
 
 
+-- TODO rewrite using nngraph
 -- TODO procesing sequences by uterrances
 -- TODO baidu ctc https://github.com/baidu-research/warp-ctc/blob/master/torch_binding/TUTORIAL.md
--- TODO forward pass is terribly slow
 
 torch.setdefaulttensortype('torch.FloatTensor')
 
@@ -40,6 +42,8 @@ NeuralNetwork.SOFTMAX = "softmax"
 NeuralNetwork.INPUT = "input"
 NeuralNetwork.LSTM = "lstm"
 NeuralNetwork.BLSTM = "blstm"
+NeuralNetwork.GRU = "gru"
+NeuralNetwork.BGRU = "bgru"
 NeuralNetwork.DEFAULT_HISTORY = 5
 
 
@@ -165,6 +169,10 @@ function NeuralNetwork:_addLayer(layer, p_layer)
         self.model:add(nn.Lstm(p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.BLSTM then
         self.model:add(nn.Blstm(p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
+    elseif layer.type == NeuralNetwork.GRU then
+        self.model:add(nn.Gru(p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
+    elseif layer.type == NeuralNetwork.BGRU then
+        self.model:add(nn.Bgru(p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.SOFTMAX then
         self.model:add(nn.Linear(p_layer.size, layer.size))
         self.model:add(nn.LogSoftMax())
