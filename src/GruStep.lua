@@ -16,7 +16,8 @@ end
 
 function UpdateGateTransform:updateGradInput(input, gradOutput)
     nn.Identity.updateGradInput(self, input, gradOutput)
---    self.gradInput:mul(-1)
+    self.gradInput:mul(-1)
+    return self.gradInput
 end
 
 
@@ -118,8 +119,7 @@ function GruStep:currentInput(input)
         local pStep = self.pStep()
         pOutput = pStep.output
     else
-        local zInput = self.zTensor:repeatTensor(input:size(1), self.layerSize)
-        pOutput = zInput
+        pOutput = self.zTensor:repeatTensor(input:size(1), self.layerSize)
     end
     return {input, pOutput}
 end

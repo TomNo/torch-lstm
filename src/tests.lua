@@ -5,6 +5,8 @@ require 'cutorch'
 require 'cunn'
 
 
+--TODO generalize - to much code duplication :D
+
 tester = torch.Tester()
 
 
@@ -230,13 +232,11 @@ function GruTest:testCorrectForwardBackward()
         b_output[i] = b:backward(i_b, torch.ones(1))
     end
     local e_b = torch.cat(b_output):view(history, 1)
-    tester:asserteq(o_a, o_b, "Outputs do not match.")
+    tester:assertTensorEq(o_a, o_b, 0.0, "Outputs do not match")
 
-    print(e_a)
-    print(e_b)
 
     for i = 1, history do
-        tester:asserteq(e_a[i], e_b[history + 1 - i],
+        tester:assertTensorEq(e_a[i], e_b[history + 1 - i], 0.0,
             "Backward errors do not match.")
     end
 
