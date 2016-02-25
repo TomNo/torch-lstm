@@ -12,6 +12,7 @@ local LstmStep = torch.class('nn.LstmStep', 'nn.Sequential')
 --TODO rename variables --> camelCase
 function LstmStep:__init(layerSize)
     nn.Sequential.__init(self)
+    self.inputSize = layerSize * 4
     self.cellStates = nil
     self.layerSize = layerSize
     self.zTensor = torch.zeros(1)

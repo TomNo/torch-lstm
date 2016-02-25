@@ -5,11 +5,13 @@ require 'LstmStep'
 
 local Steps = torch.class("nn.Steps", "nn.Container")
 
+
 function Steps:__init(layerSize, history)
     nn.Container.__init(self)
     self.history = history or 1
     self.layerSize = layerSize
     self:_setStepModule()
+    self.inputSize = self.step.inputSize
     -- copies of first step module
     self:add(self.step)
     for _ = 2, self.history do

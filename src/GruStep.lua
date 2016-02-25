@@ -26,14 +26,17 @@ local GruStep = torch.class('nn.GruStep', 'nn.Sequential')
 function GruStep:__init(layerSize)
     nn.Sequential.__init(self)
     self.layerSize = layerSize
+    self.inputSize = 3 * layerSize
     self.zTensor = torch.zeros(1)
     local inputActs = nn.Sequential():add(nn.Reshape(3, layerSize)):add(nn.SplitTable(1,2))
     local inputs = nn.ParallelTable():add(inputActs):add(nn.Identity())
     self:add(inputs)
     self:add(nn.FlattenTable())
     self:add(nn.ConcatTable():add(nn.SelectTable(1)):add(nn.NarrowTable(2,3)))
-    -- hidden to hidden activations # TODO no bias
-    local hActs = nn.Linear(layerSize, 2 * layerSize, false)
+    -- hidden to hidden activations
+    -- set bias to 1 because of the forget(reset) gate activation
+    local hActs = nn.Linear(layerSize, 2 * layerSize)
+    hActs.bias:fill(1)
     local gates = nn.Sequential()
     local gInputs = nn.ConcatTable()
     gInputs:add(nn.Sequential():add(nn.NarrowTable(1,2)):add(nn.JoinTable(2)))
@@ -42,7 +45,7 @@ function GruStep:__init(layerSize)
     gates:add(nn.CAddTable())
     gates:add(nn.Sigmoid())
     gates:add(nn.Split())
---    -- now we have gate activations - time to apply them
+    -- now we have gate activations - time to apply them
     local gApp = nn.Sequential():add(nn.ConcatTable():add(gates):add(nn.SelectTable(3)))
     gApp:add(nn.FlattenTable())
     local updateGateTransform = nn.Sequential():add(nn.SelectTable(1)):add(nn.UpdateGateTransform())

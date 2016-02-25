@@ -5,6 +5,7 @@ torch.setdefaulttensortype('torch.FloatTensor')
 
 -- Sequential dataset used for sequential training
 
+-- TODO change how are batches created -> use as many sequences as there are batches
 
 local TrainSeqDs = torch.class('TrainSeqDs')
 

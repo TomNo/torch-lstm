@@ -5,13 +5,15 @@ require 'cutorch'
 require 'cunn'
 
 
---TODO generalize - to much code duplication :D
+--TODO generalize - to much code duplication :D!!!
 
 tester = torch.Tester()
 
 
 classNames = { "LinearScale", "LstmStep", "Lstm", "Blstm", "GruStep", "Gru", "Bgru" }
 
+
+cond = 1e-10
 
 function testClass(class)
     local lSize = 6
@@ -116,13 +118,12 @@ function LstmTest:testCorrectForwardBackward()
         b_output[i] = b:backward(i_b, torch.ones(1))
     end
     local e_b = torch.cat(b_output):view(history, 1)
-    if torch.ne(o_a, o_b):sum() ~= 0 then
-        print("Error: outputs are not consistent")
-        return 1
-    end
+
+    tester:assertTensorEq(o_a, o_b, cond, "Outputs do not match")
 
     for i = 1, history do
-        assert(e_a[i]:eq(e_b[history + 1 - i]), "Backward errors do not match.")
+        tester:assertTensorEq(e_a[i], e_b[history + 1 - i], cond,
+            "Backward errors do not match.")
     end
 
     return 0
@@ -209,6 +210,7 @@ function GruTest:testBatched()
     end
 end
 
+
 function GruTest:testCorrectForwardBackward()
     local w_const = 0.3
     local history = 4
@@ -218,6 +220,10 @@ function GruTest:testCorrectForwardBackward()
     local b_params = b:getParameters()
     a_params:fill(w_const)
     b_params:fill(w_const)
+    -- element research has biases on input gate, which does not work well
+    -- with this implementation as we are using batch normalization on the inputs
+    -- and bias is added in hidden to hidden activations -> set bias to zero
+    b_params[8] = 0
     local i_a = torch.ones(history, 1)
     local i_b = torch.ones(1)
     local o_a = a:forward(i_a)
@@ -232,11 +238,10 @@ function GruTest:testCorrectForwardBackward()
         b_output[i] = b:backward(i_b, torch.ones(1))
     end
     local e_b = torch.cat(b_output):view(history, 1)
-    tester:assertTensorEq(o_a, o_b, 0.0, "Outputs do not match")
-
+    tester:assertTensorEq(o_a, o_b, cond, "Outputs do not match")
 
     for i = 1, history do
-        tester:assertTensorEq(e_a[i], e_b[history + 1 - i], 0.0,
+        tester:assertTensorEq(e_a[i], e_b[history + 1 - i], cond,
             "Backward errors do not match.")
     end
 
