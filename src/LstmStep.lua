@@ -1,5 +1,6 @@
 require 'torch'
 require 'nn'
+require 'Step'
 require 'LinearScale'
 
 
@@ -7,15 +8,14 @@ require 'LinearScale'
 -- http://arxiv.org/pdf/1510.01378.pdf
 
 
-local LstmStep = torch.class('nn.LstmStep', 'nn.Sequential')
+local LstmStep = torch.class('nn.LstmStep', 'nn.Step')
 
 --TODO rename variables --> camelCase
+--TODO make it more elegent
 function LstmStep:__init(layerSize)
-    nn.Sequential.__init(self)
-    self.inputSize = layerSize * 4
+    nn.Step.__init(self, layerSize)
+    self.inputSize = 4 * layerSize
     self.cellStates = nil
-    self.layerSize = layerSize
-    self.zTensor = torch.zeros(1)
     -- all input activations
     local i_acts = nn.Identity()
     -- all output activations
@@ -93,12 +93,6 @@ function LstmStep:__init(layerSize)
 end
 
 
-function LstmStep:updateOutput(input)
-    nn.Sequential.updateOutput(self, self:currentInput(input))
-    return self.output
-end
-
-
 function LstmStep:updateGradInput(input, gradOutput)
     local nGradOutput, nCellGradOutput
     if self.nStep then
@@ -126,21 +120,6 @@ function LstmStep:updateGradInput(input, gradOutput)
         currentGradOutput)
     self.gradInput = currentGradOutput
     return currentGradOutput
-end
-
-
-function LstmStep:accGradParameters(input, gradOutput, scale)
-    nn.Sequential.accGradParameters(self, self:currentInput(input), gradOutput,
-        scale)
-end
-
-
-
-function LstmStep:backward(input, gradOutput, scale)
-    scale = scale or 1
-    self:updateGradInput(input, gradOutput)
-    self:accGradParameters(input, gradOutput, scale)
-    return self.gradInput
 end
 
 

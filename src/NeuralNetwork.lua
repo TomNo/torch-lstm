@@ -8,6 +8,7 @@ require 'Lstm'
 require 'Blstm'
 require 'Gru'
 require 'Bgru'
+require 'RecLayer'
 
 
 -- TODO rewrite using nngraph
@@ -36,8 +37,14 @@ local NeuralNetwork = torch.class('NeuralNetwork')
 
 NeuralNetwork.FEED_FORWARD_TANH = "feedforward_tanh"
 NeuralNetwork.FEED_FORWARD_LOGISTIC = "feedforward_logistic"
-NeuralNetwork.MULTICLASS_CLASSIFICATION = "multiclass_classification"
 NeuralNetwork.FEED_FORWARD_RELU = "feedforward_relu"
+NeuralNetwork.REC_TANH = "rec_tanh"
+NeuralNetwork.REC_LOGISTIC = "rec_logistic"
+NeuralNetwork.REC_RELU = "rec_relu"
+NeuralNetwork.B_REC_TANH = "brec_tanh"
+NeuralNetwork.B_REC_LOGISTIC = "brec_logistic"
+NeuralNetwork.B_REC_RELU = "brec_relu"
+NeuralNetwork.MULTICLASS_CLASSIFICATION = "multiclass_classification"
 NeuralNetwork.SOFTMAX = "softmax"
 NeuralNetwork.INPUT = "input"
 NeuralNetwork.LSTM = "lstm"
@@ -94,7 +101,6 @@ function NeuralNetwork:init()
         self.model = nn.Sequential()
         self:_createLayers()
     end
-
     self.m_params, self.m_grad_params = self.model:getParameters()
 
     if self.conf.weights then
@@ -165,6 +171,18 @@ function NeuralNetwork:_addLayer(layer, p_layer)
     elseif layer.type == NeuralNetwork.FEED_FORWARD_RELU then
         self.model:add(nn.Linear(p_layer.size, layer.size))
         self.model:add(nn.ReLU())
+    elseif layer.type == NeuralNetwork.REC_RELU then
+        self.model:add(nn.RecLayer(nn.ReLU, p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
+    elseif layer.type == NeuralNetwork.REC_TANH then
+        self.model:add(nn.RecLayer(nn.Tanh, p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
+    elseif layer.type == NeuralNetwork.REC_LOGISTIC then
+        self.model:add(nn.RecLayer(nn.Sigmoid, p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
+    elseif layer.type == NeuralNetwork.B_REC_RELU then
+        self.model:add(nn.BiRecLayer(nn.ReLU, p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
+    elseif layer.type == NeuralNetwork.B_REC_TANH then
+        self.model:add(nn.BiRecLayer(nn.Tanh, p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
+    elseif layer.type == NeuralNetwork.B_REC_LOGISTIC then
+        self.model:add(nn.BiRecLayer(nn.Sigmoid, p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.LSTM then
         self.model:add(nn.Lstm(p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.BLSTM then

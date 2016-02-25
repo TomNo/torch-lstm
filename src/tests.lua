@@ -10,7 +10,7 @@ require 'cunn'
 tester = torch.Tester()
 
 
-classNames = { "LinearScale", "LstmStep", "Lstm", "Blstm", "GruStep", "Gru", "Bgru" }
+classNames = { "LinearScale", "LstmStep", "Lstm", "Blstm", "GruStep", "Gru", "Bgru", "RecLayer" }
 
 
 cond = 1e-10
@@ -24,10 +24,13 @@ function testClass(class)
     local instance
     if class.__typename == "nn.Lstm" or class.__typename == "nn.Blstm" or
             class.__typename == 'nn.Gru' or class.__typename == 'nn.Bgru' then
-        instance = class.new(iSize, lSize, history, bNorm):cuda()
+        instance = class.new(iSize, lSize, history, bNorm)
+    elseif class.__typename == "nn.RecLayer" then
+        instance = class.new(nn.Tanh, iSize, lSize, history, bNorm)
     else
-        instance = class.new(lSize, bNorm, history):cuda()
+        instance = class.new(lSize, bNorm, history)
     end
+    instance = instance:cuda()
     local input
     if class.__typename == "nn.LstmStep" then
         input = torch.ones(bSize * history, lSize * 4):cuda()
@@ -45,7 +48,7 @@ for i = 1, #classNames do
     require(classNames[i])
 end
 
-classes = { nn.LinearScale, nn.LstmStep, nn.Lstm, nn.Blstm, nn.GruStep, nn.Gru, nn.Bgru }
+classes = { nn.LinearScale, nn.LstmStep, nn.Lstm, nn.Blstm, nn.GruStep, nn.Gru, nn.Bgru, nn.RecLayer}
 
 for i = 1, #classes do
     local testFunction = function()

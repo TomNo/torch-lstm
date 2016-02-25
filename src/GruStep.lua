@@ -1,9 +1,10 @@
 require 'torch'
 require 'nn'
+require 'Step'
 
 
--- TODO maybe gradOutput should be negated
 local UpdateGateTransform = torch.class("nn.UpdateGateTransform", "nn.Identity")
+
 
 -- (1 - z)
 function UpdateGateTransform:updateOutput(input)
@@ -14,6 +15,7 @@ function UpdateGateTransform:updateOutput(input)
     return self.output
 end
 
+
 function UpdateGateTransform:updateGradInput(input, gradOutput)
     nn.Identity.updateGradInput(self, input, gradOutput)
     self.gradInput:mul(-1)
@@ -21,13 +23,12 @@ function UpdateGateTransform:updateGradInput(input, gradOutput)
 end
 
 
-local GruStep = torch.class('nn.GruStep', 'nn.Sequential')
+local GruStep = torch.class('nn.GruStep', 'nn.Step')
+
 
 function GruStep:__init(layerSize)
-    nn.Sequential.__init(self)
-    self.layerSize = layerSize
+    nn.Step.__init(self, layerSize)
     self.inputSize = 3 * layerSize
-    self.zTensor = torch.zeros(1)
     local inputActs = nn.Sequential():add(nn.Reshape(3, layerSize)):add(nn.SplitTable(1,2))
     local inputs = nn.ParallelTable():add(inputActs):add(nn.Identity())
     self:add(inputs)
@@ -64,67 +65,5 @@ function GruStep:__init(layerSize)
     self:add(nn.CAddTable())
 end
 
-
-function GruStep:updateOutput(input)
-    nn.Sequential.updateOutput(self, self:currentInput(input))
-    return self.output
-end
-
-
-function GruStep:updateGradInput(input, gradOutput)
-    if self.nStep then
-        local nGradOutput = self.nStep():getOutputDeltas()
-        gradOutput:add(nGradOutput)
-    end
-    local currentGradOutput = gradOutput
-    local currentModule = self.modules[#self.modules]
-    for i = #self.modules - 1, 1, -1 do
-        local previousModule = self.modules[i]
-        currentGradOutput = currentModule:updateGradInput(previousModule.output,
-            currentGradOutput)
-        currentModule.gradInput = currentGradOutput
-        currentModule = previousModule
-    end
-    currentGradOutput = currentModule:updateGradInput(self:currentInput(input),
-        currentGradOutput)
-    self.gradInput = currentGradOutput
-    return currentGradOutput
-end
-
-
-function GruStep:accGradParameters(input, gradOutput, scale)
-    nn.Sequential.accGradParameters(self, self:currentInput(input), gradOutput,
-        scale)
-end
-
-
-function GruStep:backward(input, gradOutput, scale)
-    scale = scale or 1
-    self:updateGradInput(input, gradOutput)
-    self:accGradParameters(input, gradOutput, scale)
-    return self.gradInput
-end
-
-
-function GruStep:getGradInput()
-    return self.gradInput[1]
-end
-
-
-function GruStep:getOutputDeltas()
-    return self.gradInput[2]
-end
-
-
-function GruStep:currentInput(input)
-    local pOutput
-    if self.pStep then
-        local pStep = self.pStep()
-        pOutput = pStep.output
-    else
-        pOutput = self.zTensor:repeatTensor(input:size(1), self.layerSize)
-    end
-    return {input, pOutput}
-end
 
 --eof
