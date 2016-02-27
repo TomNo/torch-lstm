@@ -1,0 +1,36 @@
+{
+    "layers": [
+        {
+            "size": 120,
+            "name": "fbank",
+            "type": "input"
+        },
+        {
+            "size": 512,
+            "name": "output1",
+            "bias": 1.0,
+            "type": "blstm",
+            "dropout": 0.0,
+            "batch_normalization": true
+        },
+        {
+            "size": 512,
+            "name": "output1",
+            "bias": 1.0,
+            "type": "blstm",
+            "dropout": 0.0,
+            "batch_normalization": true
+        },
+        {
+            "size": 1941,
+            "name": "output",
+            "bias": 1.0,
+            "type": "softmax"
+        },
+        {
+            "size": 1940,
+            "name": "postoutput",
+            "type": "ctc"
+        }
+    ]
+}

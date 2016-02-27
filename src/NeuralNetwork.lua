@@ -9,7 +9,7 @@ require 'Blstm'
 require 'Gru'
 require 'Bgru'
 require 'RecLayer'
-require 'warp_ctc'
+require 'CtcCriterion'
 
 
 -- TODO rewrite using nngraph
@@ -127,17 +127,13 @@ end
 function NeuralNetwork:_addCriterion(layer)
     if layer.type == NeuralNetwork.MULTICLASS_CLASSIFICATION then
         self.criterion = nn.ClassNLLCriterion()
-        if self.conf.cuda then
-            self.criterion = self.criterion:cuda()
-        end
     elseif layer.type == NeuralNetwork.CTC then
-        if self.conf.cuda then
-            self.criterion = gpu_ctc
-        else
-            self.criterion = cpu_ctc
-        end
+        self.criterion = nn.CtcCriterion(self.conf.truncate_seq)
     else
         error("Unknown objective function " .. layer["type"] .. ".")
+    end
+    if self.conf.cuda then
+        self.criterion = self.criterion:cuda()
     end
 end
 

@@ -251,10 +251,35 @@ function GruTest:testCorrectForwardBackward()
     return 0
 end
 
+function testCtc()
+    require 'warp_ctc'
+    require 'CtcCriterion'
+    local a = nn.CtcCriterion(3)
+    require 'cutorch'
+    local b = a:cuda()
+
+
+    local acts = torch.Tensor({{1,2,3,4,5},{1,2,3,4,5},{-5,-4,-3,-2,-1},
+                            {6,7,8,9,10},{6,7,8,9,10},{-10,-9,-8,-7,-6},
+                            {-5,4,3,-1,11},{11,12,13,14,15},{-15,-14,-13,-12,-11}}):cuda()
+    local labels = {{1}, {2,4}, {2,3}}
+    local sizes = {3,3,3}
+    local grads = acts:clone():fill(0)
+    local f = gpu_ctc(acts, grads, labels, sizes)
+    local sum_f = sumTable(f)
+
+    local cLabels = torch.Tensor({1,2,2,1,2,3,1,4,3})
+    local err = b:forward(acts, cLabels)
+
+    tester:asserteq(err, sum_f, "Ctc error does not fit.")
+    tester:assertTensorEq(grads, b:backward(), cond, "Ctc gradients does not fit.")
+end
+
 
 tester:add(LstmTest)
 tester:add(BlstmTests)
 tester:add(GruTest)
+tester:add(testCtc)
 
 
 tester:run()
