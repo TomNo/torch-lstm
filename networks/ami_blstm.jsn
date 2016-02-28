@@ -9,32 +9,37 @@
             "size": 512,
             "name": "blstm1",
             "bias": 1.0,
-            "type": "blstm"
+            "type": "blstm",
+            "batch_normalization": true
         },
         {
             "size": 512,
             "name": "blstm2",
             "bias": 1.0,
-            "type": "blstm"
+            "type": "blstm",
+            "batch_normalization": true
         },
 
         {
             "size": 512,
             "name": "blstm3",
             "bias": 1.0,
-            "type": "blstm"
+            "type": "blstm",
+            "batch_normalization": true
         },
         {
             "size": 512,
             "name": "blstm4",
             "bias": 1.0,
-            "type": "blstm"
+            "type": "blstm",
+            "batch_normalization": true
         },
         {
             "size": 512,
             "name": "blstm5",
             "bias": 1.0,
-            "type": "blstm"
+            "type": "blstm",
+            "batch_normalization": true
         },
         {
             "size": 4016,
