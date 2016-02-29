@@ -241,11 +241,13 @@ function NeuralNetwork:train(dataset, cv_dataset)
         local e_predictions = 0
         local i_count = 0
         local grad_clips_accs = 0
+        local b_count = 0
         while true do
             self.inputs, self.labels = dataset:nextBatch()
             if self.inputs == nil then
                 break
             end
+            b_count = b_count + 1
             local feval = function(x)
                 collectgarbage()
                 -- get new parameters
@@ -258,7 +260,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
                 local err = self.criterion:forward(outputs, self.labels)
                 --        err = err/self.inputs:size(1)
                 e_error = e_error + err
-                e_predictions = e_predictions + self:_calculateError(outputs, self.labels)
+--                e_predictions = e_predictions + self:_calculateError(outputs, self.labels)
                 i_count = i_count + outputs:size(1)
                 self.model:backward(self.inputs, self.criterion:backward(outputs, self.labels))
                 -- apply gradient clipping
@@ -275,8 +277,9 @@ function NeuralNetwork:train(dataset, cv_dataset)
         print("Epoch has taken " .. sys.clock() - time .. " seconds.")
         print("Gradient clippings occured " .. grad_clips_accs)
         grad_clips_accs = 0
-        print(string.format("Error rate on training set is: %.2f%% and loss is: %.4f",
-            e_predictions / i_count * 100, e_error))
+--        print(string.format("Error rate on training set is: %.2f%% and loss is: %.4f",
+--            e_predictions / i_count * 100, e_error))
+        print(string.format("Loss on training set is: %.4f", e_error / b_count))
         --autosave model or weights
         if self.conf.autosave_model then
             local prefix = ""
@@ -349,9 +352,10 @@ end
 
 function NeuralNetwork:test(dataset)
     assert(dataset.cols == self.input_size, "Dataset inputs does not match first layer size.")
-    local g_error = 0
+--    local g_error = 0
     local c_error = 0
-    local i_count = 0
+    local b_count = 0
+--    local i_count = 0
     self.model:evaluate()
     dataset:startBatchIteration(self.conf.parallel_sequences,
                                 self.conf.truncate_seq)
@@ -360,14 +364,17 @@ function NeuralNetwork:test(dataset)
         if self.inputs == nil then
             break
         end
+        b_count = b_count + 1
         local output = self.model:forward(self.inputs)
-        i_count = i_count + output:size(1)
+--        i_count = i_count + output:size(1)
         c_error = c_error + self.criterion(output, self.labels)
-        g_error = g_error + self:_calculateError(output, self.labels)
+--        g_error = g_error + self:_calculateError(output, self.labels)
     end
     collectgarbage()
-    return (g_error / i_count) * 100, c_error
+--    return (g_error / i_count) * 100, c_error
+    return c_error / b_count
 end
+
 
 
 function NeuralNetwork:saveWeights(filename)
