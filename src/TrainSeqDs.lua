@@ -185,6 +185,101 @@ function TrainSeqDs:startBatchIteration(b_size, h_size, shuffle, rShift,
     self.rShilt = rShift or false
 end
 
+function TrainSeqDs:startBatchIterationParallel(b_size, h_size, shuffle, rShift,
+                                        overlap)
+    self:startSeqIteration(shuffle)
+    self.a_seq_index = 1
+    self.h_size = h_size
+    self.b_size = b_size
+    self.b_count = h_size * b_size
+--    self:_prepareSeqData()
+    self.overlap = overlap or false
+    self.rShilt = rShift or false
+    self.seqBuffer = {}
+    for i=1, b_size do
+        table.insert(self.seqBuffer, {})
+    end
+end
+
+function TrainSeqDs:_refillSeqBuffer()
+    for i=1, self.b_size do
+        local item = self.seqBuffer[i]
+        if not item.seq then
+            local seq, labels
+            repeat
+                seq, labels = self:getSeq()
+                if not seq then
+                    return false
+                end
+                -- ignore sequences that are shorter than history
+            until seq:size(1) >= self.h_size
+            --duplicate data that does not form minibatch
+            local m_count = math.floor(seq:size(1) / self.h_size)
+            local overhang = seq:size(1) % self.h_size
+            if overhang > 0 then
+                seq:resize(self.h_size * (m_count + 1), seq:size(2))
+                labels:resize(self.h_size * (m_count + 1))
+                local e = self.h_size * m_count + overhang
+                local s = e - self.h_size + 1
+                local from = {{s, e }}
+                local to = {{self.h_size * m_count + 1, seq:size(1) }}
+                seq[to]:copy(seq[from]:clone())
+                labels[to]:copy(labels[from]:clone())
+                m_count = m_count + 1
+            end
+            item.seq = seq:clone()
+            item.labels = labels:clone()
+        end
+    end
+    return true
+end
+
+
+function TrainSeqDs:nextParallelBatch()
+    self:_refillSeqBuffer()
+    -- checks that there are still some sequeces to process
+    local seqCount = 0
+    for i=1, self.b_size do
+        local item = self.seqBuffer[i]
+        if item.seq then
+            seqCount = seqCount + 1
+        end
+    end
+
+    if seqCount == 0 then
+        return nil
+    end
+    self.data:resize(seqCount*self.h_size, self.cols)
+    self.labels:resize(seqCount* self.h_size)
+    local dIndex = 0
+    for y=1, self.h_size do
+        for i=1, self.b_size do
+            local item = self.seqBuffer[i]
+            if item.seq then
+                dIndex = dIndex + 1
+                self.data[dIndex] = item.seq[1]
+                self.labels[dIndex] = item.labels[1]
+                if item.seq:size(1) == 1 then
+                    item.seq = nil
+                    item.labels = nil
+                else
+                    item.seq = item.seq[{{2, item.seq:size(1)}}]
+                    item.labels = item.labels[{{2, item.labels:size(1)}}]
+                end
+            end
+        end
+    end
+
+--    local int = { { self.a_seq_index, self.a_seq_index + self.b_count - 1 } }
+--    local tmp_data = self.seq_data[int]
+--    local tmp_labels = self.seq_labels[int]
+--    self.data:copy(tmp_data:view(self.b_size, self.h_size, self.cols):transpose(1, 2):reshape(self.b_count, self.cols))
+--    self.labels:copy(tmp_labels:view(self.b_size, self.h_size):t():reshape(self.b_count))
+--
+--    self.a_seq_index = self.a_seq_index + self.b_count
+    return self.data, self.labels
+end
+
 function TrainSeqDs:nextBatch()
     while self.a_seq_index + self.b_count > self.seq_data:size(1) do
         local status = self:_prepareSeqData(self.a_seq_index)
