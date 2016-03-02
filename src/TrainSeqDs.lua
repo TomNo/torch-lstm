@@ -236,7 +236,18 @@ end
 
 
 function TrainSeqDs:nextParallelBatch()
-    self:_refillSeqBuffer()
+    -- refill only if buffer is empty
+    local emptySeqs = 0
+    for i=1, self.b_size do
+        if not self.seqBuffer[i].seq then
+            emptySeqs = emptySeqs + 1
+        end
+    end
+
+    if emptySeqs == self.b_size then
+        self:_refillSeqBuffer()
+    end
+    
     -- checks that there are still some sequeces to process
     local seqCount = 0
     for i=1, self.b_size do
