@@ -40,7 +40,7 @@ end
 
 function TrainSeqDs:_readAll()
     self.a_features = self.f_features:all()
-    self.a_labels = self.f_labels:all()
+    self.a_labels = self.f_labels:all()--:type('torch.FloatTensor')
 end
 
 function TrainSeqDs:_readSeqSizes()
@@ -72,7 +72,7 @@ function TrainSeqDs:_genFracIntervals()
         end
         -- ignoring shorter sequences than is history
         if interval - acc + 1 >= self.h_size then
-            for y=acc, interval - shift, shift do
+            for y=acc, interval - self.h_size, shift do
                 local e = y + self.h_size - 1
                 table.insert(self.fracIntervals, {y, e})
             end
