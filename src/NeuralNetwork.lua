@@ -240,7 +240,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
         self.model:training()
         print('==> doing epoch ' .. epoch .. ' on training data.')
         local time = sys.clock()
-        dataset:startBatchIterationFractions(self.conf.parallel_sequences,
+        dataset:startBatchIteration(self.conf.parallel_sequences,
             self.conf.truncate_seq,
             self.conf.shuffle_sequences,
             self.conf.random_shift,
@@ -251,7 +251,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
         local grad_clips_accs = 0
         local b_count = 0
         while true do
-            self.inputs, self.labels = dataset:nextFracBatch()
+            self.inputs, self.labels = dataset:nextBatch()
             if self.inputs == nil then
                 break
             end
