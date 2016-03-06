@@ -115,6 +115,8 @@ function NeuralNetwork:init()
     print("Model contains " .. self.m_params:size(1) .. " weights.")
     print("Model:")
     print(self.model)
+    print("Criterion:")
+    print(self.criterion)
     if self.conf.optimizer == "rmsprop" then
         self.optim = optim.rmsprop
     elseif self.conf.optimizer == "adadelta" then
