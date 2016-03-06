@@ -288,7 +288,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
         print("Gradient clippings occured " .. grad_clips_accs)
         grad_clips_accs = 0
         print(string.format("Error rate on training set is: %.2f%% and loss is: %.4f",
-            e_predictions / i_count * 100, e_error))
+            e_predictions / i_count * 100, e_error / b_count))
 --        print(string.format("Loss on training set is: %.4f", e_error / b_count))
         --autosave model or weights
         if self.conf.autosave_model then
@@ -320,43 +320,104 @@ end
 
 
 -- put whole sequence in one batch
-function NeuralNetwork:forward(data)
+function NeuralNetwork:forward(data, overlap)
     assert(data:size(2) == self.input_size,
         "Dataset input does not match first layer size.")
     self.model:evaluate()
-    local oCount = data:size(1)
-    if data:size(1) < self.conf.truncate_seq then
-        local padding = torch.zeros(self.conf.truncate_seq - oCount, data:size(2))
-        data = data:cat(padding, 1)
+
+--    data = data:cuda()
+----    local out = self.model:forward(data)
+----    return out:float()
+--    --
+--    local out = torch.Tensor(data:size(1), self.output_size)
+--    out[{{1,17}}]:copy(self.model:forward(data[{{1, 32}}])[{{1,17}}])
+--
+--    for i=18,data:size(1) - 16, 2 do
+--        local jaj = self.model:forward(data[{{i-15, i + 2 + 15-1}}])
+--        out[{{i, i+2-1}}]:copy(jaj[{{16, 17}}])
+--    end
+--
+--
+--
+--    out[{{data:size(1)-16+1,data:size(1)}}]:copy(self.model:forward(data[{{data:size(1)-32+1,data:size(1)}}])[{{17,32}}])
+--
+--    return out
+    -- default no overlap
+    overlap = overlap or 0
+    local step = self.conf.truncate_seq - 2 * overlap
+
+    local iSeqs = math.floor((data:size(1) - self.conf.truncate_seq + overlap) / step) -- TODO there might be still a problem
+    local overhang = data:size(1) % step
+
+    local input = torch.Tensor(iSeqs * self.conf.truncate_seq, data:size(2))
+    for y=1, self.conf.truncate_seq do
+        for i=1, iSeqs do
+            input[(y - 1) * iSeqs + i] = data[(i - 1) *  step + y]
+        end
     end
 
-    local bCount = math.floor(data:size(1)/self.conf.truncate_seq)
-    local overhang = data:size(1) % self.conf.truncate_seq
-    local iCount = self.conf.truncate_seq * bCount
-    local outputs = torch.Tensor(oCount, self.output_size)
-    local tmp = data[{{1, iCount}}]:clone()
-    local inputs = tmp:view(bCount, self.conf.truncate_seq, data:size(2)):transpose(1,2):reshape(iCount, data:size(2))
-    if self.conf.cuda then
-        inputs = inputs:cuda()
-    end
-    local tOutput = self.model:forward(inputs):view(self.conf.truncate_seq, bCount, self.output_size)
-    tOutput = tOutput:transpose(1,2):reshape(iCount, self.output_size)
-    -- dealing with sequences that are shorter than history
-    if data:size(1) ~= oCount then
-        outputs:copy(tOutput[{{1,oCount}}])
-    else
-        outputs[{{1, iCount}}]:copy(tOutput)
-    end
+--    for y=1, self.conf.truncate_seq do
+--        input[(y - 1) * iSeqs + iSeqs + 1] = data[data:size(1) - self.conf.truncate_seq + y]
+--    end
 
-    if overhang > 0 then
-        local bIndex = data:size(1) - self.conf.truncate_seq + 1
-        inputs:resize(self.conf.truncate_seq, data:size(2))
-        inputs:copy(data[{{bIndex, data:size(1)}}])
-        local tOutput = self.model:forward(inputs)
-        outputs[{{bIndex, data:size(1)}}]:copy(tOutput)
+    input = input:cuda()
+
+    local output = torch.Tensor(data:size(1), self.output_size)
+    output:fill(88)
+--    output[{{1, step + overlap}}] = modelOutput[{{1, step+overlap}}]
+--    output[{{data:size(1) - self.conf.truncate_seq + 1, data:size(1)}}] = modelOutput[{{data:size(1) - self.conf.truncate_seq + 1, data:size(1)}}]
+--    for i=2, modelOutput:size(1) do
+--        output
+--    end
+    --calculate first the end of the sequence
+    local eInt = {{data:size(1) - self.conf.truncate_seq + 1, data:size(1)}}
+    output[eInt]:copy(self.model:forward(data[eInt]:cuda()))
+    -- cut off output that goes after each other between overlap and overlap + step time step
+    local modelOutput = self.model:forward(input)
+        -- copy the first overlap - begining of the whole sequence
+    for i=0, overlap - 1 do
+        output[{{i+1}}]:copy(modelOutput[{{i * iSeqs + 1}}])
     end
-    collectgarbage()
-    return outputs
+    local linOutput = modelOutput[{{overlap * iSeqs + 1, (overlap + step) * iSeqs}}]
+    -- transform to regular sequence
+    linOutput = linOutput:view(step, iSeqs, self.output_size):transpose(1,2):reshape(iSeqs*step, self.output_size)
+    output[{{overlap + 1, overlap + linOutput:size(1)}}]:copy(linOutput)
+
+    return output
+
+--    local oCount = data:size(1)
+--    if data:size(1) < self.conf.truncate_seq then
+--        local padding = torch.zeros(self.conf.truncate_seq - oCount, data:size(2))
+--        data = data:cat(padding, 1)
+--    end
+--
+--    local bCount = math.floor(data:size(1)/self.conf.truncate_seq)
+--    local overhang = data:size(1) % self.conf.truncate_seq
+--    local iCount = self.conf.truncate_seq * bCount
+--    local outputs = torch.Tensor(oCount, self.output_size)
+--    local tmp = data[{{1, iCount}}]:clone()
+--    local inputs = tmp:view(bCount, self.conf.truncate_seq, data:size(2)):transpose(1,2):reshape(iCount, data:size(2))
+--    if self.conf.cuda then
+--        inputs = inputs:cuda()
+--    end
+--    local tOutput = self.model:forward(inputs):view(self.conf.truncate_seq, bCount, self.output_size)
+--    tOutput = tOutput:transpose(1,2):reshape(iCount, self.output_size)
+--    -- dealing with sequences that are shorter than history
+--    if data:size(1) ~= oCount then
+--        outputs:copy(tOutput[{{1,oCount}}])
+--    else
+--        outputs[{{1, iCount}}]:copy(tOutput)
+--    end
+--
+--    if overhang > 0 then
+--        local bIndex = data:size(1) - self.conf.truncate_seq + 1
+--        inputs:resize(self.conf.truncate_seq, data:size(2))
+--        inputs:copy(data[{{bIndex, data:size(1)}}])
+--        local tOutput = self.model:forward(inputs)
+--        outputs[{{bIndex, data:size(1)}}]:copy(tOutput)
+--    end
+--    collectgarbage()
+--    return outputs
 end
 
 
