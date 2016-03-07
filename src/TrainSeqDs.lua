@@ -40,7 +40,7 @@ end
 
 function TrainSeqDs:_readAll()
     self.a_features = self.f_features:all()
-    self.a_labels = self.f_labels:all()--:type('torch.FloatTensor')
+    self.a_labels = self.f_labels:all():type('torch.FloatTensor')
 end
 
 function TrainSeqDs:_readSeqSizes()

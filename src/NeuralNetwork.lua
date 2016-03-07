@@ -234,13 +234,15 @@ function NeuralNetwork:train(dataset, cv_dataset)
         learningRateDecay = self.conf.learning_rate_decay
     }
     local state = {}
---    if dataset.a_labels then
---        local critWeights = dataset.a_labels:histc(self.output_size)
---        critWeights:mul(-1/self.output_size)
---        critWeights:add(1)
---        self.criterion.total_weight_tensor:resize(self.output_size)
---        self.criterion.total_weight_tensor:copy(critWeights)
---    end
+    -- if whole dataset in the memory, make weights of the criterion
+    -- inversly proportional to the label frequency
+    if dataset.a_labels then
+        local critWeights = dataset.a_labels:histc(self.output_size)
+        critWeights:mul(self.output_size)
+        critWeights:div(dataset.a_labels:size(1))
+        self.criterion.total_weight_tensor:resize(self.output_size)
+        self.criterion.total_weight_tensor:copy(critWeights)
+    end
 
     for epoch = 1, self.conf.max_epochs do
         self.model:training()
