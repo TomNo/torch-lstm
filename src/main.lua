@@ -47,7 +47,7 @@ if params.forward_pass then
     while true do
         local seq = testDs:getSeq()
         if seq then
-            outputDs:save(net:forward(seq.data), seq.tag)
+            outputDs:save(net:forward(seq.data, net.conf.truncate_seq / 4), seq.tag)
         else
             break
         end
