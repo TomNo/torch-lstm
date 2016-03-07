@@ -352,6 +352,14 @@ function NeuralNetwork:forward(data, overlap)
 --    return out
     -- default no overlap
     overlap = overlap or 0
+
+    -- in case of sequence that is shorter than history
+    if data:size(1) < self.conf.truncate_seq then
+        local padding = torch.zeros(self.conf.truncate_seq - data:size(1), data:size(2))
+        local input = data:cat(padding, 1)
+        return self.model:forward(input:cuda())[{{1, data:size(1)}}]:float()
+    end
+
     local step = self.conf.truncate_seq - 2 * overlap
 
     local iSeqs = math.floor((data:size(1) - 2*overlap) / step)
