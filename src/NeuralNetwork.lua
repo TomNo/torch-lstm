@@ -33,6 +33,10 @@ local function gradClip(element)
 end
 
 
+function date()
+    return os.date("_%H_%M_%d_%m_%y")
+end
+
 local NeuralNetwork = torch.class('NeuralNetwork')
 
 
@@ -296,7 +300,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
             if self.conf.autosave_prefix then
                 prefix = self.conf.autosave_prefix .. "_"
             end
-            self:saveModel(prefix .. "epoch_" .. epoch .. ".model")
+            self:saveModel(prefix .. "epoch_" .. epoch .. date() .. ".model")
         end
 
         if self.conf.autosave_weights then
@@ -304,7 +308,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
             if self.conf.autosave_prefix then
                 prefix = self.conf.autosave_prefix .. "_"
             end
-            self:saveWeights(prefix .. "epoch_" .. epoch .. ".weights")
+            self:saveWeights(prefix .. "epoch_" .. epoch .. date() .. ".weights")
         end
 
         if not self.conf.validate_every or epoch % self.conf.validate_every == 0 then
@@ -320,6 +324,8 @@ end
 
 
 -- put whole sequence in one batch
+-- TODO put parallel seq in one batch
+-- TODO verify that it is working okay
 function NeuralNetwork:forward(data, overlap)
     assert(data:size(2) == self.input_size,
         "Dataset input does not match first layer size.")

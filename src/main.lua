@@ -14,11 +14,17 @@ cmd:option('--forward_pass', false, 'forward pass only')
 cmd:option('--forward_output', '', 'resulting forward pass output file')
 cmd:option('--forward_input', '', 'forward input file')
 cmd:option('--config_file', '../timit_config.cfg', 'training configuration file')
-cmd:option('--log_file', 'timit.log', 'log file')
+cmd:option('--log_file', '', 'log file')
 cmd:option('--output_model', 'final.model', 'name of the resulting serialized model')
 cmd:option('--input_model', '', 'name of the resulting serialized model')
 cmd:text()
 params = cmd:parse(arg)
+
+if params.log_file == '' then
+    params.log_file = "torch"
+end
+params.log_file = params.log_file .. date() .. ".log"
+
 cmd:log(params.log_file, params)
 net = NeuralNetwork(params, cmd)
 if params.input_model ~= '' then
