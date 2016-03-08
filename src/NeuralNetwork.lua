@@ -236,7 +236,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
     local state = {}
     -- if whole dataset in the memory, make weights of the criterion
     -- inversly proportional to the label frequency
-    if dataset.a_labels then
+    if dataset.a_labels and self.criterion.total_weight_tensor then
         local critWeights = dataset.a_labels:histc(self.output_size)
         critWeights:mul(self.output_size)
         critWeights:div(dataset.a_labels:size(1))
@@ -328,6 +328,7 @@ end
 -- put whole sequence in one batch
 -- TODO put parallel seq in one batch
 -- TODO verify that it is working okay
+-- TODO cpu forward pass is not supported
 function NeuralNetwork:forward(data, overlap)
     assert(data:size(2) == self.input_size,
         "Dataset input does not match first layer size.")

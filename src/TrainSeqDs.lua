@@ -194,7 +194,7 @@ function TrainSeqDs:_prepareSeqData(restDataIndex)
     local int = { { 1, m_count * self.h_size } }
     self.seq_data = seq[int]
     self.seq_labels = labels[int]
-    if self.overlap then
+    if self.overlap and m_s_count ~= 0 then
         local shift_int = { { shift, m_s_count * self.h_size } }
         self.seq_data = self.seq_data:cat(seq[shift_int], 1)
         self.seq_labels = self.seq_labels:cat(labels[shift_int], 1)
