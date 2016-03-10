@@ -234,6 +234,11 @@ function NeuralNetwork:train(dataset, cv_dataset)
         learningRateDecay = self.conf.learning_rate_decay
     }
     local state = {}
+    if self.conf.optimizer_state then
+        print("Loading optimizer state from file: " .. self.conf.optimizer_state)
+        state = torch.load(self.conf.optimizer_state)
+    end
+
     -- if whole dataset in the memory, make weights of the criterion
     -- inversly proportional to the label frequency
     if dataset.a_labels and self.criterion.total_weight_tensor then
@@ -296,7 +301,18 @@ function NeuralNetwork:train(dataset, cv_dataset)
         print(string.format("Error rate on training set is: %.2f%% and loss is: %.4f",
             e_predictions / i_count * 100, e_error / b_count))
 --        print(string.format("Loss on training set is: %.4f", e_error / b_count))
-        --autosave model or weights
+        --autosave model, weights, optimizer
+        if self.conf.autosave_optimizer then
+            local prefix = ""
+            if self.conf.autosave_prefix then
+                prefix = self.conf.autosave_prefix .. "_"
+            end
+            local oString = string.format("%sepoch_%s%s.optimizer", prefix,
+                epoch, date())
+            print("Saving optimizer to: " .. oString)
+            torch.save(oString, state)
+        end
+
         if self.conf.autosave_model then
             local prefix = ""
             if self.conf.autosave_prefix then
