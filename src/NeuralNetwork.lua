@@ -300,6 +300,11 @@ function NeuralNetwork:train(dataset, cv_dataset)
         grad_clips_accs = 0
         print(string.format("Error rate on training set is: %.2f%% and loss is: %.4f",
             e_predictions / i_count * 100, e_error / b_count))
+        if self.conf.learning_rate_halving then
+            opt_params.learningRate =  opt_params.learningRate / 2
+            print("Learning rate after halving is: " .. opt_params.learningRate)
+        end
+
 --        print(string.format("Loss on training set is: %.4f", e_error / b_count))
         --autosave model, weights, optimizer
         if self.conf.autosave_optimizer then
