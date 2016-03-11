@@ -301,8 +301,16 @@ function NeuralNetwork:train(dataset, cv_dataset)
         print(string.format("Error rate on training set is: %.2f%% and loss is: %.4f",
             e_predictions / i_count * 100, e_error / b_count))
         if self.conf.learning_rate_halving then
-            opt_params.learningRate =  opt_params.learningRate / 2
-            print("Learning rate after halving is: " .. opt_params.learningRate)
+            local nLr =  opt_params.learningRate / 2
+            local mLr =  self.conf.min_learning_rate
+            if (mLr and nLr > mLr) or not mLr then
+                opt_params.learningRate = nLr
+                print("Learning rate after halving is: " .. opt_params.learningRate)
+            else
+                print("Not halving learning rate as it is less than minimal learning rate.")
+                opt_params.learningRate = mLr
+                print("Setting learning rate to minimal learning rate: " .. opt_params.learningRate)
+            end
         end
 
 --        print(string.format("Loss on training set is: %.4f", e_error / b_count))
