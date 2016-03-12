@@ -230,9 +230,9 @@ function NeuralNetwork:train(dataset, cv_dataset)
     local opt_params = {
         learningRate = self.conf.learning_rate,
         weightDecay = self.conf.weight_decay,
-        momentum = self.conf.momentum,
-        learningRateDecay = self.conf.learning_rate_decay
+        momentum = self.conf.momentum
     }
+    self.conf.decay_every = self.conf.decay_every or 1
     local state = {}
     if self.conf.optimizer_state then
         print("Loading optimizer state from file: " .. self.conf.optimizer_state)
@@ -300,14 +300,14 @@ function NeuralNetwork:train(dataset, cv_dataset)
         grad_clips_accs = 0
         print(string.format("Error rate on training set is: %.2f%% and loss is: %.4f",
             e_predictions / i_count * 100, e_error / b_count))
-        if self.conf.learning_rate_halving then
-            local nLr =  opt_params.learningRate / 2
+        if self.conf.learning_rate_decay and epoch % self.conf.decay_every == 0 then
+            local nLr =  opt_params.learningRate * self.conf.learning_rate_decay
             local mLr =  self.conf.min_learning_rate
             if (mLr and nLr > mLr) or not mLr then
                 opt_params.learningRate = nLr
-                print("Learning rate after halving is: " .. opt_params.learningRate)
+                print("Learning rate after decay is: " .. opt_params.learningRate)
             else
-                print("Not halving learning rate as it is less than minimal learning rate.")
+                print("Not decaying learning rate as it is less than minimal learning rate.")
                 opt_params.learningRate = mLr
                 print("Setting learning rate to minimal learning rate: " .. opt_params.learningRate)
             end
