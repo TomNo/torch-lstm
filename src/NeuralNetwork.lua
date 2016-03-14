@@ -10,8 +10,10 @@ require 'Gru'
 require 'Bgru'
 require 'RecLayer'
 require 'CtcCriterion'
+require 'rmsprop'
 
 
+-- TODO resolve bgru batchnormalization and bias
 -- TODO rewrite using nngraph
 -- TODO procesing sequences by uterrances
 -- TODO baidu ctc https://github.com/baidu-research/warp-ctc/blob/master/torch_binding/TUTORIAL.md
@@ -230,9 +232,8 @@ function NeuralNetwork:train(dataset, cv_dataset)
     local opt_params = {
         learningRate = self.conf.learning_rate,
         weightDecay = self.conf.weight_decay,
-        momentum = self.conf.momentum
+        momentum = self.conf.momentum,
     }
-    self.conf.decay_every = self.conf.decay_every or 1
     local state = {}
     if self.conf.optimizer_state then
         print("Loading optimizer state from file: " .. self.conf.optimizer_state)
@@ -311,6 +312,16 @@ function NeuralNetwork:train(dataset, cv_dataset)
                 opt_params.learningRate = mLr
                 print("Setting learning rate to minimal learning rate: " .. opt_params.learningRate)
             end
+
+--            local nMomentum = opt_params.momentum - self.conf.momentum_step
+--            if nMomentum < 0 then-- self.conf.max_momentum then
+--                print("Not decaying momentum as it is bigger than maximal momentum.")
+--                opt_params.momentum = 0 --self.conf.max_momentum
+--                print("Setting momentum to maximal momentum: " .. opt_params.momentum)
+--            else
+--                opt_params.momentum = nMomentum
+--                print("Momentum after decay is: " .. opt_params.momentum)
+--            end
         end
 
 --        print(string.format("Loss on training set is: %.4f", e_error / b_count))
