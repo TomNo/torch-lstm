@@ -27,7 +27,7 @@ function optim.rmsprop(opfunc, x, config, state)
     local fx, dfdx = opfunc(x)
     -- init
     if not state.m then
---        state.g = torch.Tensor():typeAs(x):resizeAs(dfdx):zero()
+        state.g = torch.Tensor():typeAs(x):resizeAs(dfdx):zero()
         state.m = torch.Tensor():typeAs(x):resizeAs(dfdx):zero()
         --cache
         state.tmp = torch.Tensor():typeAs(x):resizeAs(dfdx)
@@ -42,12 +42,12 @@ function optim.rmsprop(opfunc, x, config, state)
     state.m:addcmul(1.0 - alpha, dfdx, dfdx)
 
     -- calculate leaky average of gradients
---    state.g:mul(alpha)
---    state.g:add(1.0 - alpha, dfdx)
+    state.g:mul(alpha)
+    state.g:add(1.0 - alpha, dfdx)
 
 
---    state.tmp:cmul(state.g, state.g):mul(-1):add(state.m):sqrt():add(epsilon)
-    state.tmp:sqrt(state.m):add(epsilon)
+    state.tmp:cmul(state.g, state.g):mul(-1):add(state.m):sqrt():add(epsilon)
+--    state.tmp:sqrt(state.m):add(epsilon)
     if momentum ~= 0 then
         state.update:mul(momentum):addcdiv(-lr, dfdx, state.tmp)
         if state.x then
