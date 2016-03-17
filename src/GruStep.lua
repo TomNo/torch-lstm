@@ -1,6 +1,7 @@
 require 'torch'
 require 'nn'
 require 'Step'
+require 'Bias'
 
 
 local UpdateGateTransform = torch.class("nn.UpdateGateTransform", "nn.Identity")
@@ -59,7 +60,7 @@ function GruStep:__init(layerSize)
     gApp:add(concat)
     self:add(nn.ParallelTable():add(nn.Identity()):add(gApp))
     self:add(nn.FlattenTable())
-    local nonLinearity = nn.Sequential():add(nn.NarrowTable(1,2)):add(nn.CAddTable()):add(nn.Tanh())
+    local nonLinearity = nn.Sequential():add(nn.NarrowTable(1,2)):add(nn.CAddTable(nn.Bias(layerSize))):add(nn.Tanh())
     self:add(nn.ConcatTable():add(nonLinearity):add(nn.SelectTable(3)):add(nn.SelectTable(4)))
     self:add(nn.ConcatTable():add(nn.Sequential():add(nn.NarrowTable(1,2)):add(nn.CMulTable())):add(nn.SelectTable(3)))
     self:add(nn.CAddTable())
