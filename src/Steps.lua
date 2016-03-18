@@ -1,6 +1,7 @@
 require 'torch'
 require 'nn'
 require 'LstmStep'
+require 'Module'
 
 
 local Steps = torch.class("nn.Steps", "nn.Container")
@@ -15,7 +16,7 @@ function Steps:__init(layerSize, history)
     -- copies of first step module
     self:add(self.step)
     for _ = 2, self.history do
-        self:add(self.step:clone('weight', 'bias', 'gradWeight', 'gradBias'))
+        self:add(self.step:clone('weight', 'bias', 'gradWeight', 'gradBias', 'gradInput'))
     end
 
     -- set to every module which module is next and previous
