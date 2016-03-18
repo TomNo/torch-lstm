@@ -1,15 +1,11 @@
 require 'nn'
 
 -- sharing does not work for tables
-function share(self, mlp, ...)
+local function share(self, mlp, ...)
     local arg = { ... }
     for i, v in ipairs(arg) do
-        if self[v] ~= nil then
-            if self[v].set then
-                self[v]:set(mlp[v])
-            else
-                self[v] = mlp[v]
-            end
+        if self[v] ~= nil and self[v].set then
+            self[v]:set(mlp[v])
             self.accUpdateGradParameters = self.sharedAccUpdateGradParameters
             mlp.accUpdateGradParameters = mlp.sharedAccUpdateGradParameters
         end
