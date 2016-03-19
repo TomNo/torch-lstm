@@ -95,6 +95,9 @@ function NeuralNetwork:init()
         local loadCuda = function()
             require 'cutorch'
             require 'cunn'
+            require 'cudnn'
+            nn.Tanh = cudnn.Tanh
+            nn.Sigmoid = cudnn.Sigmoid
             local _, aMem = cutorch.getMemoryUsage()
             print("Available memory is: " .. aMem)
         end
@@ -108,6 +111,26 @@ function NeuralNetwork:init()
     else
         self.model = nn.Sequential()
         self:_createLayers()
+        cudnn.convert(self.model, cudnn)
+
+        -- inspired by fb resnet
+        local cache = {}
+        self.model:apply(function(m)
+            local moduleType = torch.type(m)
+            if torch.isTensor(m.gradInput) and moduleType ~= 'nn.ConcatTable'
+                    and not string.match(moduleType, "Steps") then
+                if cache[moduleType] == nil then
+                    cache[moduleType] = torch.CudaStorage(1)
+                end
+                m.gradInput = torch.CudaTensor(cache[moduleType], 1, 0)
+            end
+        end)
+        for i, m in ipairs(self.model:findModules('nn.ConcatTable')) do
+            if cache[i % 2] == nil then
+                cache[i % 2] = torch.CudaStorage(1)
+            end
+            m.gradInput = torch.CudaTensor(cache[i % 2], 1, 0)
+        end
     end
     self.m_params, self.m_grad_params = self.model:getParameters()
 

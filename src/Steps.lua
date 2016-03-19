@@ -16,7 +16,7 @@ function Steps:__init(layerSize, history)
     -- copies of first step module
     self:add(self.step)
     for _ = 2, self.history do
-        self:add(self.step:clone('weight', 'bias', 'gradWeight', 'gradBias', 'gradInput'))
+        self:add(self.step:clone('weight', 'bias', 'gradWeight', 'gradBias'))
     end
 
     -- set to every module which module is next and previous

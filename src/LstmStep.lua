@@ -38,7 +38,7 @@ function LstmStep:__init(layerSize)
     -- output of the model at this stage is <c_states + o_acts, i_acts + f_acts, peepholes acts, cell states>
     -- input and forget gate activation
     local items = nn.ConcatTable()
-    items:add(nn.Sequential():add(nn.NarrowTable(2, 2)):add(nn.CAddTable(true)):add(nn.Sigmoid()):add(nn.Reshape(2, layerSize)):add(nn.SplitTable(1, 2)))
+    items:add(nn.Sequential():add(nn.NarrowTable(2, 2)):add(nn.CAddTable(true)):add(nn.Sigmoid(true)):add(nn.Reshape(2, layerSize)):add(nn.SplitTable(1, 2)))
     items:add(nn.Sequential():add(nn.SelectTable(4)))
     --    --  -- divide rest activations between cell state and output gate
     items:add(nn.Sequential():add(nn.SelectTable(1)):add(nn.Reshape(2, layerSize)):add(nn.SplitTable(1, 2)))
@@ -49,7 +49,7 @@ function LstmStep:__init(layerSize)
     -- forward i_acts
     items:add(nn.SelectTable(1))
     -- apply squashing function to cell state
-    items:add(nn.Sequential():add(nn.SelectTable(4)):add(nn.Tanh()))
+    items:add(nn.Sequential():add(nn.SelectTable(4)):add(nn.Tanh(true)))
     -- apply forgeting
     items:add(nn.Sequential():add(nn.NarrowTable(2, 2)):add(nn.CMulTable()))
     -- forward o_acts
@@ -80,11 +80,11 @@ function LstmStep:__init(layerSize)
     tmp:add(nn.Sequential():add(nn.SelectTable(1)):add(nn.LinearScale(layerSize)))
     --  end
     tmp:add(nn.SelectTable(2))
-    tmp:add(nn.Sequential():add(nn.SelectTable(1)):add(nn.Tanh()))
+    tmp:add(nn.Sequential():add(nn.SelectTable(1)):add(nn.Tanh(true)))
     self:add(tmp) -- 8th module
     -- output of the model at this stage is <output_gate peephole act, o_acts, cell_acts>
     -- finalize the o_acts and apply sigmoid
-    tmp = nn.ConcatTable():add(nn.Sequential():add(nn.NarrowTable(1, 2)):add(nn.CAddTable(true)):add(nn.Sigmoid()))
+    tmp = nn.ConcatTable():add(nn.Sequential():add(nn.NarrowTable(1, 2)):add(nn.CAddTable(true)):add(nn.Sigmoid(true)))
     -- just forward cell acts
     tmp:add(nn.SelectTable(3))
     -- result is <output>
