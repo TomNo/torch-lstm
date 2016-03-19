@@ -6,9 +6,13 @@ require 'Module'
 
 local Steps = torch.class("nn.Steps", "nn.Container")
 
+require 'cutorch'
+--TODO this must be done differently
+local gradInput = torch.CudaTensor()
 
 function Steps:__init(layerSize, history)
     nn.Container.__init(self)
+    self.gradInput = gradInput
     self.history = history or 1
     self.layerSize = layerSize
     self:_setStepModule()
@@ -16,7 +20,7 @@ function Steps:__init(layerSize, history)
     -- copies of first step module
     self:add(self.step)
     for _ = 2, self.history do
-        self:add(self.step:clone('weight', 'bias', 'gradWeight', 'gradBias'))
+        self:add(self.step:clone('weight', 'bias', 'gradWeight', 'gradBias', 'gradInput'))
     end
 
     -- set to every module which module is next and previous

@@ -118,7 +118,7 @@ function NeuralNetwork:init()
         self.model:apply(function(m)
             local moduleType = torch.type(m)
             if torch.isTensor(m.gradInput) and moduleType ~= 'nn.ConcatTable'
-                    and not string.match(moduleType, "Steps") then
+                    and not string.match(moduleType, "Steps") then -- step modules are handled separately
                 if cache[moduleType] == nil then
                     cache[moduleType] = torch.CudaStorage(1)
                 end
@@ -285,7 +285,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
         local e_error = 0
         local e_predictions = 0
         local i_count = 0
-        local grad_clips_accs = 0
+--        local grad_clips_accs = 0
         local b_count = 0
         while true do
             self.inputs, self.labels = dataset:nextBatch()
@@ -310,7 +310,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
                 self.model:backward(self.inputs, self.criterion:backward(outputs, self.labels))
                 -- apply gradient clipping
                 self.m_grad_params:clamp(CLIP_MIN, CLIP_MAX)
-                grad_clips_accs = self.m_grad_params:eq(1):cat(self.m_grad_params:eq(-1)):sum() + grad_clips_accs
+--                grad_clips_accs = self.m_grad_params:eq(1):cat(self.m_grad_params:eq(-1)):sum() + grad_clips_accs
                 --        print("Max gradient: " .. self.m_grad_params:max())
                 --        print("Min gradient: " .. self.m_grad_params:min())
                 --        print("Average gradient: " .. self.m_grad_params:sum() / self.m_grad_params:nElement())
@@ -320,8 +320,8 @@ function NeuralNetwork:train(dataset, cv_dataset)
         end -- mini batch
         collectgarbage()
         print("Epoch has taken " .. sys.clock() - time .. " seconds.")
-        print("Gradient clippings occured " .. grad_clips_accs)
-        grad_clips_accs = 0
+--        print("Gradient clippings occured " .. grad_clips_accs)
+--        grad_clips_accs = 0
         print(string.format("Error rate on training set is: %.2f%% and loss is: %.4f",
             e_predictions / i_count * 100, e_error / b_count))
         if self.conf.learning_rate_decay and epoch % self.conf.decay_every == 0 then

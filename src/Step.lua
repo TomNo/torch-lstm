@@ -46,11 +46,31 @@ end
 
 
 function Step:backward(input, gradOutput, scale)
-    scale = scale or 1
-    self:updateGradInput(input, gradOutput)
-    self:accGradParameters(input, gradOutput, scale)
-    return self.gradInput
+   scale = scale or 1
+   if self.nStep then
+        local nGradOutput = self.nStep():getOutputDeltas()
+        gradOutput:add(nGradOutput)
+   end
+   local currentGradOutput = gradOutput
+   local currentModule = self.modules[#self.modules]
+   for i=#self.modules-1,1,-1 do
+      local previousModule = self.modules[i]
+      currentGradOutput = self:rethrowErrors(currentModule, i+1, 'backward', previousModule.output, currentGradOutput, scale)
+      currentModule.gradInput = currentGradOutput
+      currentModule = previousModule
+   end
+   currentGradOutput = self:rethrowErrors(currentModule, 1, 'backward', self:currentInput(input), currentGradOutput, scale)
+   self.gradInput = currentGradOutput
+   return currentGradOutput
 end
+
+
+--function Step:backward(input, gradOutput, scale)
+--    scale = scale or 1
+--    self:updateGradInput(input, gradOutput)
+--    self:accGradParameters(input, gradOutput, scale)
+--    return self.gradInput
+--end
 
 
 function Step:getGradInput()

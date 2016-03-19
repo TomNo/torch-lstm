@@ -10,21 +10,21 @@
             "name": "bgru1",
             "bias": 1.0,
             "type": "bgru",
-            "batch_normalization": true
+            "batch_normalization": false
         },
         {
             "size": 1024,
             "name": "bgru2",
             "bias": 1.0,
             "type": "bgru",
-            "batch_normalization": true
+            "batch_normalization": false
         },
         {
             "size": 1024,
             "name": "bgru3",
             "bias": 1.0,
             "type": "bgru",
-            "batch_normalization": true
+            "batch_normalization": false
         },
         {
             "size": 4016,
