@@ -13,7 +13,10 @@ function Split:updateOutput(input)
 end
 
 function Split:updateGradInput(input, gradOutput)
-    self.gradInput = gradOutput[1]:cat(gradOutput[2])
+    self.gradInput:resizeAs(input)
+    local size = input:size(2)
+    self.gradInput[{ {}, { 1, size / 2} }]:copy(gradOutput[1])
+    self.gradInput[{ {}, { size / 2 + 1, size } }]:copy(gradOutput[2])
     return self.gradInput
 end
 
