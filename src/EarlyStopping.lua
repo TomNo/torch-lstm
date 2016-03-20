@@ -25,7 +25,11 @@ function EarlyStopping:validate(net, dataset)
 --    print(string.format("Loss on cv set is: %.4f", cv_c_error))
 
     if cv_c_error < self.lError then
-        self.bWeights = net.m_params:clone()
+        if self.bWeights then
+            self.bWeights:copy(net.m_params)
+        else
+            self.bWeights = net.m_params:clone()
+        end
         self.noBest = 1
         self.lError = cv_c_error
     else
