@@ -11,6 +11,7 @@ require 'Bgru'
 require 'RecLayer'
 require 'CtcCriterion'
 require 'rmsprop'
+require 'ParallelTable'
 
 
 -- TODO resolve bgru batchnormalization and bias
@@ -117,8 +118,7 @@ function NeuralNetwork:init()
         local cache = {}
         self.model:apply(function(m)
             local moduleType = torch.type(m)
-            if torch.isTensor(m.gradInput) and moduleType ~= 'nn.ConcatTable'
-                    and not string.match(moduleType, "Steps") then -- step modules are handled separately
+            if torch.isTensor(m.gradInput) and moduleType ~= 'nn.ConcatTable' then
                 if cache[moduleType] == nil then
                     cache[moduleType] = torch.CudaStorage(1)
                 end

@@ -7,8 +7,6 @@ local function share(self, mlp, ...)
         if self[v] ~= nil then
             if self[v].set then
                 self[v]:set(mlp[v])
---            else
---                self[v] = mlp[v]
             end
             self.accUpdateGradParameters = self.sharedAccUpdateGradParameters
             mlp.accUpdateGradParameters = mlp.sharedAccUpdateGradParameters

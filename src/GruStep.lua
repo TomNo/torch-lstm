@@ -2,6 +2,7 @@ require 'torch'
 require 'nn'
 require 'Step'
 require 'Bias'
+require 'Split'
 
 
 local UpdateGateTransform = torch.class("nn.UpdateGateTransform", "nn.Identity")
@@ -30,8 +31,7 @@ local GruStep = torch.class('nn.GruStep', 'nn.Step')
 function GruStep:__init(layerSize)
     nn.Step.__init(self, layerSize)
     self.inputSize = 3 * layerSize
-    local inputActs = nn.Sequential():add(nn.Reshape(3, layerSize)):add(nn.SplitTable(1,2))
-    local inputs = nn.ParallelTable():add(inputActs):add(nn.Identity())
+    local inputs = nn.ParallelTable():add(nn.Split(3)):add(nn.Identity())
     self:add(inputs)
     self:add(nn.FlattenTable())
     self:add(nn.ConcatTable():add(nn.SelectTable(1)):add(nn.NarrowTable(2,3)))
