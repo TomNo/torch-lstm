@@ -2,6 +2,7 @@ require 'torch'
 require 'nn'
 require 'Step'
 require 'LinearScale'
+require 'Split'
 
 
 -- INFO no batch norm because it performs worse
@@ -31,17 +32,17 @@ function LstmStep:__init(layerSize)
     -- that is divided in half
     local io_acts = nn.Sequential()
     io_acts:add(nn.ParallelTable():add(i_acts):add(o_acts))
-    io_acts:add(nn.CAddTable(true)):add(nn.Reshape(2, 2 * layerSize)):add(nn.SplitTable(1, 2))
+    io_acts:add(nn.CAddTable(true)):add(nn.Split(2))
     -- sum half of the activations with peepholes
-    self:add(nn.ParallelTable():add(io_acts):add(c_acts))
+    self:add(nn.ParallelTable():add(io_acts):add(c_acts))--+-+
     self:add(nn.FlattenTable())
     -- output of the model at this stage is <c_states + o_acts, i_acts + f_acts, peepholes acts, cell states>
     -- input and forget gate activation
     local items = nn.ConcatTable()
-    items:add(nn.Sequential():add(nn.NarrowTable(2, 2)):add(nn.CAddTable(true)):add(nn.Sigmoid(true)):add(nn.Reshape(2, layerSize)):add(nn.SplitTable(1, 2)))
+    items:add(nn.Sequential():add(nn.NarrowTable(2, 2)):add(nn.CAddTable(true)):add(nn.Sigmoid(true)):add(nn.Split(2)))
     items:add(nn.Sequential():add(nn.SelectTable(4)))
     --    --  -- divide rest activations between cell state and output gate
-    items:add(nn.Sequential():add(nn.SelectTable(1)):add(nn.Reshape(2, layerSize)):add(nn.SplitTable(1, 2)))
+    items:add(nn.Sequential():add(nn.SelectTable(1)):add(nn.Split(2)))
     self:add(items)
     self:add(nn.FlattenTable())
     -- output of the model at this stage is <i_acts, f_acts, cell states, c_acts, o_acts>
@@ -49,7 +50,7 @@ function LstmStep:__init(layerSize)
     -- forward i_acts
     items:add(nn.SelectTable(1))
     -- apply squashing function to cell state
-    items:add(nn.Sequential():add(nn.SelectTable(4)):add(nn.Tanh(true)))
+    items:add(nn.Sequential():add(nn.SelectTable(4)):add(nn.RegularTanh()))
     -- apply forgeting
     items:add(nn.Sequential():add(nn.NarrowTable(2, 2)):add(nn.CMulTable()))
     -- forward o_acts

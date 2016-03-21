@@ -97,6 +97,8 @@ function NeuralNetwork:init()
             require 'cutorch'
             require 'cunn'
             require 'cudnn'
+            --cudnn tanh cannot handle noncontingenouse arrays
+            torch.class("nn.RegularTanh", "nn.Tanh")
             nn.Tanh = cudnn.Tanh
             nn.Sigmoid = cudnn.Sigmoid
             local _, aMem = cutorch.getMemoryUsage()
@@ -113,7 +115,6 @@ function NeuralNetwork:init()
         self.model = nn.Sequential()
         self:_createLayers()
         cudnn.convert(self.model, cudnn)
-
         -- inspired by fb resnet
         local cache = {}
         self.model:apply(function(m)
