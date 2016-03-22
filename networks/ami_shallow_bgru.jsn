@@ -6,25 +6,32 @@
             "type": "input"
         },
         {
-            "size": 1024,
+            "size": 512,
             "name": "bgru1",
             "bias": 1.0,
             "type": "bgru",
-            "batch_normalization": false
+            "batch_normalization": true
         },
         {
-            "size": 1024,
+            "size": 512,
             "name": "bgru2",
             "bias": 1.0,
             "type": "bgru",
-            "batch_normalization": false
+            "batch_normalization": true
         },
         {
-            "size": 1024,
+            "size": 512,
             "name": "bgru3",
             "bias": 1.0,
             "type": "bgru",
-            "batch_normalization": false
+            "batch_normalization": true
+        },
+        {
+            "size": 512,
+            "name": "bgru3",
+            "bias": 1.0,
+            "type": "bgru",
+            "batch_normalization": true
         },
         {
             "size": 4016,
