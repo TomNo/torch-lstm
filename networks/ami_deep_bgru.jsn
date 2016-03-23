@@ -1,0 +1,55 @@
+{
+    "layers": [
+        {
+            "size": 120,
+            "name": "fbank",
+            "type": "input"
+        },
+        {
+            "size": 512,
+            "name": "bgru1",
+            "bias": 1.0,
+            "type": "bgru",
+            "batch_normalization": true
+        },
+        {
+            "size": 512,
+            "name": "bgru2",
+            "bias": 1.0,
+            "type": "bgru",
+            "batch_normalization": true
+        },
+        {
+            "size": 512,
+            "name": "bgru3",
+            "bias": 1.0,
+            "type": "bgru",
+            "batch_normalization": true
+        },
+        {
+            "size": 512,
+            "name": "bgru3",
+            "bias": 1.0,
+            "type": "bgru",
+            "batch_normalization": true
+        },
+        {
+            "size": 256,
+            "name": "bgru3",
+            "bias": 1.0,
+            "type": "bgru",
+            "batch_normalization": true
+        },
+        {
+            "size": 4016,
+            "name": "output",
+            "bias": 1.0,
+            "type": "softmax"
+        },
+        {
+            "size": 4016,
+            "name": "postoutput",
+            "type": "multiclass_classification"
+        }
+    ]
+}
