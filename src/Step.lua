@@ -7,7 +7,7 @@ local Step = torch.class('nn.Step', 'nn.Sequential')
 
 function Step:__init(layerSize)
     self.layerSize = layerSize
-    self.zTensor = torch.zeros(1)
+    self.zTensor = torch.Tensor()
     nn.Sequential.__init(self)
 end
 
@@ -81,7 +81,10 @@ function Step:currentInput(input)
         local pStep = self.pStep()
         pOutput = pStep.output
     else
-        pOutput = self.zTensor:repeatTensor(input:size(1), self.layerSize)
+        if self.zTensor:dim() == 0 then
+            self.zTensor:resize(1, self.layerSize)
+        end
+        pOutput = self.zTensor:expand(input:size(1), self.layerSize)
     end
     return {input, pOutput}
 end
