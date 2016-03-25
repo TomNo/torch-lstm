@@ -34,7 +34,7 @@ function LstmStep:__init(layerSize)
     io_acts:add(nn.ParallelTable():add(i_acts):add(o_acts))
     io_acts:add(nn.CAddTable(true)):add(nn.Split(2))
     -- sum half of the activations with peepholes
-    self:add(nn.ParallelTable():add(io_acts):add(c_acts))--+-+
+    self:add(nn.ParallelTable():add(io_acts):add(c_acts))
     self:add(nn.FlattenTable())
     -- output of the model at this stage is <c_states + o_acts, i_acts + f_acts, peepholes acts, cell states>
     -- input and forget gate activation
@@ -99,17 +99,15 @@ function LstmStep:updateGradInput(input, gradOutput)
     if self.nStep then
         nGradOutput = self.nStep():getOutputDeltas()
         nCellGradOutput = self.nStep():getCellDeltas()
-    else
-        local zTensor = self.zTensor:repeatTensor(input:size(1), self.layerSize)
-        nGradOutput, nCellGradOutput = zTensor, zTensor
+        gradOutput:add(nGradOutput)
     end
-    gradOutput:add(nGradOutput)
+
     local currentGradOutput = gradOutput
     local currentModule = self.modules[#self.modules]
     for i = #self.modules - 1, 1, -1 do
         local previousModule = self.modules[i]
         -- adding cell deltas
-        if currentModule == self.cellActs then
+        if currentModule == self.cellActs and nCellGradOutput then
             currentGradOutput[1]:add(nCellGradOutput)
         end
         currentGradOutput = currentModule:updateGradInput(previousModule.output,
@@ -119,6 +117,33 @@ function LstmStep:updateGradInput(input, gradOutput)
     end
     currentGradOutput = currentModule:updateGradInput(self:currentInput(input),
         currentGradOutput)
+    self.gradInput = currentGradOutput
+    return currentGradOutput
+end
+
+
+function LstmStep:backward(input, gradOutput, scale)
+    scale = scale or 1
+    local nGradOutput, nCellGradOutput
+    if self.nStep then
+        nGradOutput = self.nStep():getOutputDeltas()
+        nCellGradOutput = self.nStep():getCellDeltas()
+        gradOutput:add(nGradOutput)
+    end
+
+    local currentGradOutput = gradOutput
+    local currentModule = self.modules[#self.modules]
+    for i = #self.modules - 1, 1, -1 do
+        local previousModule = self.modules[i]
+        -- adding cell deltas
+        if currentModule == self.cellActs and nCellGradOutput then
+            currentGradOutput[1]:add(nCellGradOutput)
+        end
+        currentGradOutput = currentModule:backward(previousModule.output, currentGradOutput, scale)
+        currentModule.gradInput = currentGradOutput
+        currentModule = previousModule
+    end
+    currentGradOutput = currentModule:backward(self:currentInput(input), currentGradOutput, scale)
     self.gradInput = currentGradOutput
     return currentGradOutput
 end
@@ -151,9 +176,9 @@ function LstmStep:currentInput(input)
         pOutput = pStep.output
         pCellStates = pStep:getCellStates()
     else
-        local zInput = self.zTensor:repeatTensor(input:size(1), self.layerSize)
-        pOutput = zInput
-        pCellStates = zInput
+        self:adaptZTensor()
+        pOutput = self.zTensor:expand(input:size(1), self.layerSize)
+        pCellStates = pOutput
     end
     return { { input, pOutput }, pCellStates }
 end

@@ -75,16 +75,20 @@ function Step:getOutputDeltas()
 end
 
 
+function Step:adaptZTensor()
+    if self.zTensor:dim() == 0 then
+        self.zTensor:resize(1, self.layerSize)
+        self.zTensor:zero()
+    end
+end
+
 function Step:currentInput(input)
     local pOutput
     if self.pStep then
         local pStep = self.pStep()
         pOutput = pStep.output
     else
-        if self.zTensor:dim() == 0 then
-            self.zTensor:resize(1, self.layerSize)
-            self.zTensor:zero()
-        end
+        self:adaptZTensor()
         pOutput = self.zTensor:expand(input:size(1), self.layerSize)
     end
     return {input, pOutput}
