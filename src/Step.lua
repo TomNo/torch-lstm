@@ -83,6 +83,7 @@ function Step:currentInput(input)
     else
         if self.zTensor:dim() == 0 then
             self.zTensor:resize(1, self.layerSize)
+            self.zTensor:zero()
         end
         pOutput = self.zTensor:expand(input:size(1), self.layerSize)
     end
