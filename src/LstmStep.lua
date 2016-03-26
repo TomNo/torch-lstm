@@ -3,6 +3,7 @@ require 'nn'
 require 'Step'
 require 'LinearScale'
 require 'Split'
+require 'AddLinear'
 
 
 -- INFO no batch norm because it performs worse
@@ -20,7 +21,7 @@ function LstmStep:__init(layerSize)
     -- all input activations
     local i_acts = nn.Identity()
     -- all output activations
-    local o_acts = nn.Linear(layerSize, 4 * layerSize)
+    local o_acts = nn.AddLinear(layerSize, 4 * layerSize)
     -- set bias to 1 because of the forget gate activation
     o_acts.bias:fill(1)
     --  -- forget and input peepholes cell acts
@@ -30,9 +31,9 @@ function LstmStep:__init(layerSize)
 
     -- container for summed input and output activations
     -- that is divided in half
-    local io_acts = nn.Sequential()
-    io_acts:add(nn.ParallelTable():add(i_acts):add(o_acts))
-    io_acts:add(nn.CAddTable(true)):add(nn.Split(2))
+    local io_acts = nn.Sequential():add(o_acts):add(nn.Split(2))
+--    io_acts:add(nn.ParallelTable():add(i_acts):add(o_acts))
+--    io_acts:add(nn.CAddTable(true)):add(nn.Split(2))
     -- sum half of the activations with peepholes
     self:add(nn.ParallelTable():add(io_acts):add(c_acts))
     self:add(nn.FlattenTable())

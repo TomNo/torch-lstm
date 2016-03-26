@@ -3,7 +3,7 @@ require 'nn'
 require 'Step'
 require 'Bias'
 require 'Split'
-
+require 'AddLinear'
 
 local UpdateGateTransform = torch.class("nn.UpdateGateTransform", "nn.Identity")
 
@@ -37,14 +37,14 @@ function GruStep:__init(layerSize)
     self:add(nn.ConcatTable():add(nn.SelectTable(1)):add(nn.NarrowTable(2,3)))
     -- hidden to hidden activations
     -- set bias to 1 because of the forget(reset) gate activation
-    local hActs = nn.Linear(layerSize, 2 * layerSize)
+    local hActs = nn.AddLinear(layerSize, 2 * layerSize)
     hActs.bias:fill(1)
     local gates = nn.Sequential()
     local gInputs = nn.ConcatTable()
     gInputs:add(nn.Sequential():add(nn.NarrowTable(1,2)):add(nn.JoinTable(2)))
-    gInputs:add(nn.Sequential():add(nn.SelectTable(3)):add(hActs))
+    gInputs:add(nn.Sequential():add(nn.SelectTable(3)))
     gates:add(gInputs)
-    gates:add(nn.CAddTable(true))
+    gates:add(hActs)
     gates:add(nn.Sigmoid(true))
     gates:add(nn.Split())
     -- now we have gate activations - time to apply them

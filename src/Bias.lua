@@ -10,12 +10,11 @@ function Bias:updateOutput(input)
     if input:dim() == 1 then
         error('Input must be matrix')
     elseif input:dim() == 2 then
-        self.output:resizeAs(input)
-        self.output:copy(input)
-        self.output:add(self.weight:repeatTensor(self.output:size(1)))
+        input:add(self.weight:repeatTensor(input:size(1)))
     else
         error('Input must be vector or matrix')
     end
+    self.output = input
     return self.output
 end
 
