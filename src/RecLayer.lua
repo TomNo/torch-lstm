@@ -4,6 +4,16 @@ require 'Step'
 require 'Steps'
 require 'BatchRecurrent'
 require 'Bidirectional'
+require 'AddLinear'
+
+
+local ILinear = torch.class("nn.ILinear", 'nn.Linear')
+
+
+function ILinear:reset()
+    self.bias:zero()
+    self.weight:copy(torch.eye(self.weight:size(1)))
+end
 
 
 local RecSteps = torch.class("nn.RecSteps", "nn.Steps")
@@ -26,8 +36,7 @@ local RecStep = torch.class("nn.RecStep", "nn.Step")
 function RecStep:__init(aType, layerSize)
     nn.Step.__init(self, layerSize)
     self.inputSize = layerSize
-    self:add(nn.ParallelTable():add(nn.Identity()):add(nn.Linear(layerSize, layerSize)))
-    self:add(nn.CAddTable())
+    self:add(nn.AddLinear(layerSize, layerSize))
     self:add(aType())
 end
 
