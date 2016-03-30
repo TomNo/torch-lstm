@@ -32,11 +32,17 @@ function LinearScale:updateOutput(input)
         self.output:cmul(self.weight)
     elseif input:dim() == 2 then
         self.output:resizeAs(input)
-        self.output:cmul(input, self.weight:repeatTensor(input:size(1), 1))
+        self.output:cmul(input, self:viewWeights(input:size(1)))
     else
         error('Input must be vector or matrix')
     end
     return self.output
+end
+
+
+function LinearScale:viewWeights(size)
+    local tmp = self.weight:view(1, self.weight:size(1))
+    return tmp:expand(size, self.weight:size(1))
 end
 
 
@@ -47,11 +53,10 @@ function LinearScale:updateGradInput(input, gradOutput)
         if self.gradInput:nElement() ~= nElement then
             self.gradInput:zero()
         end
-
         if input:dim() == 1 then
             self.gradInput:addcmul(self.weight, gradOutput)
         elseif input:dim() == 2 then
-            self.gradInput:cmul(gradOutput, self.weight:repeatTensor(gradOutput:size(1), 1))
+            self.gradInput:cmul(gradOutput, self:viewWeights(gradOutput:size(1)))
         end
 
         return self.gradInput
