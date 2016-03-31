@@ -40,6 +40,17 @@ function date()
     return os.date("_%H_%M_%d_%m_%y")
 end
 
+
+local function sumTable(tb)
+    local sum = 0
+    for k,v in pairs(tb) do
+        sum = sum + v
+    end
+
+    return sum
+end
+
+
 local NeuralNetwork = torch.class('NeuralNetwork')
 
 
@@ -241,7 +252,7 @@ end
 
 function NeuralNetwork:_calculateError(predictions, labels)
     local _, preds = predictions:max(2)
-    return preds:typeAs(labels):ne(labels):sum()
+    return preds:typeAs(labels):ne(labels):sum() - labels:eq(0):sum()
 end
 
 
@@ -265,7 +276,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
     end
 
     -- if whole dataset in the memory, make weights of the criterion
-    -- inversly proportional to the label frequency
+    -- inversely proportional to the label frequency
     if dataset.a_labels and self.criterion.total_weight_tensor then
         local critWeights = dataset.a_labels:histc(self.output_size)
         critWeights:mul(self.output_size)
@@ -278,19 +289,21 @@ function NeuralNetwork:train(dataset, cv_dataset)
         self.model:training()
         print('==> doing epoch ' .. epoch .. ' on training data.')
         local time = sys.clock()
-        dataset:startBatchIteration(self.conf.parallel_sequences,
-            self.conf.truncate_seq,
-            self.conf.shuffle_sequences,
-            self.conf.random_shift,
-            self.conf.overlap)
+--        dataset:startBatchIteration(self.conf.parallel_sequences,
+--            self.conf.truncate_seq,
+--            self.conf.shuffle_sequences,
+--            self.conf.random_shift,
+--            self.conf.overlap)
+        dataset:startParallelSeq(self.conf.parallel_sequences, self.conf.truncate_seq, self.conf.shuffle_sequences)
         local e_error = 0
         local e_predictions = 0
         local i_count = 0
 --        local grad_clips_accs = 0
         local b_count = 0
         while true do
-            self.inputs, self.labels = dataset:nextBatch()
-            if self.inputs == nil then
+--            self.inputs, self.labels = dataset:nextBatch()
+            local inputs, labels, sizes = dataset:nextParallelSeq()
+            if inputs == nil then
                 break
             end
             b_count = b_count + 1
@@ -302,13 +315,13 @@ function NeuralNetwork:train(dataset, cv_dataset)
                 end
                 -- reset gradients
                 self.m_grad_params:zero()
-                local outputs = self.model:forward(self.inputs)
-                local err = self.criterion:forward(outputs, self.labels)
+                local outputs = self.model:forward(inputs)
+                local err = self.criterion:forward(outputs, labels)
                 --        err = err/self.inputs:size(1)
                 e_error = e_error + err
-                e_predictions = e_predictions + self:_calculateError(outputs, self.labels)
-                i_count = i_count + outputs:size(1)
-                self.model:backward(self.inputs, self.criterion:backward(outputs, self.labels))
+                e_predictions = e_predictions + self:_calculateError(outputs, labels)
+                i_count = i_count + sumTable(sizes)
+                self.model:backward(inputs, self.criterion:backward(outputs, labels))
                 -- apply gradient clipping
                 self.m_grad_params:clamp(CLIP_MIN, CLIP_MAX)
 --                grad_clips_accs = self.m_grad_params:eq(1):cat(self.m_grad_params:eq(-1)):sum() + grad_clips_accs
@@ -508,18 +521,22 @@ function NeuralNetwork:test(dataset)
     local b_count = 0
     local i_count = 0
     self.model:evaluate()
-    dataset:startBatchIteration(self.conf.parallel_sequences,
-                                self.conf.truncate_seq)
+--    dataset:startBatchIteration(self.conf.parallel_sequences,
+--                                self.conf.truncate_seq)
+    dataset:startParallelSeq(self.conf.parallel_sequences,
+                             self.conf.truncate_seq,
+                             false)
     while true do
-        self.inputs, self.labels = dataset:nextBatch()
-        if self.inputs == nil then
+--        self.inputs, self.labels = dataset:nextBatch()
+        local inputs, labels, sizes = dataset:nextParallelSeq()
+        if inputs == nil then
             break
         end
         b_count = b_count + 1
-        local output = self.model:forward(self.inputs)
-        i_count = i_count + output:size(1)
-        c_error = c_error + self.criterion(output, self.labels)
-        g_error = g_error + self:_calculateError(output, self.labels)
+        local output = self.model:forward(inputs)
+        i_count = i_count + sumTable(sizes)
+        c_error = c_error + self.criterion(output, labels)
+        g_error = g_error + self:_calculateError(output, labels)
     end
     collectgarbage()
     return (g_error / i_count) * 100, c_error / b_count
