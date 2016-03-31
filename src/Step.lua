@@ -66,7 +66,7 @@ end
 
 
 function Step:getGradInput()
-    return self.gradInput[1]
+    return {self.gradInput[1]}
 end
 
 
@@ -89,9 +89,18 @@ function Step:currentInput(input)
         pOutput = pStep.output
     else
         self:adaptZTensor()
-        pOutput = self.zTensor:expand(input:size(1), self.layerSize)
+        pOutput = self.zTensor:expand(input[1]:size(1), self.layerSize)
     end
-    return {input, pOutput}
+    local inp = {}
+    if not torch.isTensor(input) then
+        for i=1,#input do
+            table.insert(inp, input[i])
+        end
+    else
+        table.insert(inp, input)
+    end
+    table.insert(inp, pOutput)
+    return inp
 end
 
 

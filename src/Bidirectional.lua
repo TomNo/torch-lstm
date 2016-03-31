@@ -3,9 +3,10 @@ require 'nn'
 require 'Split'
 require 'Revert'
 require 'BatchRecurrent'
+require 'SharedInput'
 
 
-local Bidirectional = torch.class("nn.Bidirectional", "nn.BatchRecurrent")
+local Bidirectional = torch.class("nn.Bidirectional", "nn.Sequential")
 
 
 function Bidirectional:__init(inputSize, layerSize, hist, bNorm)
@@ -17,28 +18,26 @@ function Bidirectional:__init(inputSize, layerSize, hist, bNorm)
     self.inputSize = inputSize
     self.history = hist
     self:_setActualModule()
-    self.fModule = nn.Sequential()
-    self.fModule:add(nn.Linear(inputSize, self.aModule.inputSize, false))
-    if bNorm then
-        self.fModule:add(nn.BatchNormalization(self.aModule.inputSize))
-    end
-    self.fModule:add(self.aModule)
-
-    self.bModule = nn.Sequential()
-    self.bModule:add(nn.Linear(inputSize, self.aModule.inputSize, false))
-    if bNorm then
-        self.bModule:add(nn.BatchNormalization(self.aModule.inputSize))
-    end
-    self.bModule:add(nn.Revert())
-    self.bModule:add(self.aModule:clone())
-    self.bModule:add(nn.Revert())
-
-    local concat = nn.ConcatTable()
-    concat:add(self.fModule)
+    self.bModule = self.aModule:clone()
+    self.bModule.revert = true
+    local concat = nn.SharedInput()
+    concat:add(self.aModule)
     concat:add(self.bModule)
     self:add(concat)
     self:add(nn.JoinTable(2, 2))
 end
 
+
+function Bidirectional:_setActualModule()
+    error("This method muset be overiden in superclass.")
+end
+
+
+function Bidirectional:__tostring__()
+    return torch.type(self) .. string.format('(%d -> %d, BatchNormalized=%s)',
+                                             self.inputSize,
+                                             self.layerSize,
+                                             self.bNorm)
+end
 
 --eof

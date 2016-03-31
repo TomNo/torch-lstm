@@ -31,22 +31,27 @@ local GruStep = torch.class('nn.GruStep', 'nn.Step')
 function GruStep:__init(layerSize)
     nn.Step.__init(self, layerSize)
     self.inputSize = 3 * layerSize
-    local inputs = nn.ParallelTable():add(nn.Split(3)):add(nn.Identity())
-    self:add(inputs)
-    self:add(nn.FlattenTable())
-    self:add(nn.ConcatTable():add(nn.SelectTable(1)):add(nn.NarrowTable(2,3)))
-    -- hidden to hidden activations
+    self:add(nn.ConcatTable():add(nn.SelectTable(1)):add(nn.SelectTable(4)):add(nn.SelectTable(2)):add(nn.SelectTable(4)):add(nn.SelectTable(3)))
     -- set bias to 1 because of the forget(reset) gate activation
-    local hActs = nn.AddLinear(layerSize, 2 * layerSize)
-    hActs.bias:fill(1)
+    local fActs = nn.AddLinear(layerSize, layerSize)
+    fActs.bias:fill(1)
+    local fGate = nn.Sequential():add(nn.NarrowTable(1,2)):add(fActs):add(nn.Sigmoid(true))
+    local uGate = nn.Sequential():add(nn.NarrowTable(3,2)):add(nn.AddLinear(layerSize, layerSize)):add(nn.Sigmoid(true))
+    self:add(nn.ConcatTable():add(nn.SelectTable(4)):add(fGate):add(nn.SelectTable(5)):add(uGate):add(nn.SelectTable(4)))
+
+    self.add(nn.ConcatTable():add(nn.Sequential():add(nn:NarrowTable(1,2)):add(nn.CMulTable())))
+
+
+
     local gates = nn.Sequential()
     local gInputs = nn.ConcatTable()
+
+
     gInputs:add(nn.Sequential():add(nn.NarrowTable(1,2)):add(nn.JoinTable(2)))
     gInputs:add(nn.Sequential():add(nn.SelectTable(3)))
     gates:add(gInputs)
     gates:add(hActs)
     gates:add(nn.Sigmoid(true))
-    gates:add(nn.Split())
     -- now we have gate activations - time to apply them
     local gApp = nn.Sequential():add(nn.ConcatTable():add(gates):add(nn.SelectTable(3)))
     gApp:add(nn.FlattenTable())

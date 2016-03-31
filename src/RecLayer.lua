@@ -64,7 +64,7 @@ end
 
 
 function BiRecLayer:_setActualModule()
-    self.aModule = nn.RecSteps(self.aType, self.aSize, self.history)
+    self.aModule = nn.RecLayer(self.aType, self.inputSize, self.aSize, self.history)
 end
 
 --eof
