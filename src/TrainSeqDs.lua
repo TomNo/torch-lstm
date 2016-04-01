@@ -292,7 +292,12 @@ function TrainSeqDs:nextBatch()
     self.labels:copy(tmp_labels:view(self.b_size, self.h_size):t():reshape(self.b_count))
 
     self.a_seq_index = self.a_seq_index + self.b_count
-    return self.data, self.labels
+    self.sizes = {}
+    for i=1, self.b_count/self.h_size do
+        table.insert(self.sizes, self.h_size)
+    end
+
+    return self.data, self.labels, self.sizes
 end
 
 
