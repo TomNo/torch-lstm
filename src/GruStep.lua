@@ -31,44 +31,42 @@ local GruStep = torch.class('nn.GruStep', 'nn.Step')
 function GruStep:__init(layerSize)
     nn.Step.__init(self, layerSize)
     self.inputSize = 3 * layerSize
-    self:add(nn.ConcatTable():add(nn.SelectTable(1)):add(nn.SelectTable(4)):add(nn.SelectTable(2)):add(nn.SelectTable(4)):add(nn.SelectTable(3)))
-    -- set bias to 1 because of the forget(reset) gate activation
-    local fActs = nn.AddLinear(layerSize, layerSize)
-    fActs.bias:fill(1)
-    local fGate = nn.Sequential():add(nn.NarrowTable(1,2)):add(fActs):add(nn.Sigmoid(true))
-    local uGate = nn.Sequential():add(nn.NarrowTable(3,2)):add(nn.AddLinear(layerSize, layerSize)):add(nn.Sigmoid(true))
-    self:add(nn.ConcatTable():add(nn.SelectTable(4)):add(fGate):add(nn.SelectTable(5)):add(uGate):add(nn.SelectTable(4)))
+    local zGate = nn.Sequential()
+    zGate:add(nn.ConcatTable():add(nn.SelectTable(1)):add(nn.SelectTable(4)):add(nn.SelectTable(4)))
+    zGate:add(nn.ConcatTable():add(nn.NarrowTable(1,2)):add(nn.SelectTable(3)))
+    zGate:add(nn.ParallelTable():add(nn.Sequential():add(nn.AddLinear(layerSize, layerSize)):add(nn.Sigmoid(true))):add(nn.Identity()))
+    zGate:add(nn.ConcatTable():add(nn.NarrowTable(1,2)):add(nn.SelectTable(1)))
+    zGate:add(nn.ParallelTable():add(nn.CMulTable()):add(nn.UpdateGateTransform()))
 
-    self.add(nn.ConcatTable():add(nn.Sequential():add(nn:NarrowTable(1,2)):add(nn.CMulTable())))
+    local rHidden = nn.AddLinear(layerSize, layerSize)
+    rHidden.bias:fill(1)
+    local rGate =nn.Sequential():add(nn.ConcatTable():add(nn.NarrowTable(1,2)):add(nn.SelectTable(3)))
+    rGate:add(nn.ParallelTable():add(nn.Sequential():add(rHidden):add(nn.Sigmoid(true))):add(nn.Identity()))
+    rGate:add(nn.CMulTable())
 
+    local h = nn.Sequential()
+    h:add(nn.ConcatTable():add(nn.SelectTable(3)):add(nn.SelectTable(2)):add(nn.SelectTable(4)):add(nn.SelectTable(4)))
+    h:add(nn.ConcatTable():add(nn.SelectTable(1)):add(nn.NarrowTable(2,3)))
+    h:add(nn.ParallelTable():add(nn.Identity()):add(rGate))
+    h:add(nn.AddLinear(layerSize, layerSize))
+    h:add(nn.Tanh())
 
-
-    local gates = nn.Sequential()
-    local gInputs = nn.ConcatTable()
-
-
-    gInputs:add(nn.Sequential():add(nn.NarrowTable(1,2)):add(nn.JoinTable(2)))
-    gInputs:add(nn.Sequential():add(nn.SelectTable(3)))
-    gates:add(gInputs)
-    gates:add(hActs)
-    gates:add(nn.Sigmoid(true))
-    -- now we have gate activations - time to apply them
-    local gApp = nn.Sequential():add(nn.ConcatTable():add(gates):add(nn.SelectTable(3)))
-    gApp:add(nn.FlattenTable())
-    local updateGateTransform = nn.Sequential():add(nn.SelectTable(1)):add(nn.UpdateGateTransform())
-    local forgetGate = nn.Sequential():add(nn.NarrowTable(2, 2)):add(nn.CMulTable()):add(nn.Linear(layerSize, layerSize, false))
-    local updateGate = nn.Sequential():add(nn.ConcatTable():add(nn.SelectTable(1)):add(nn.SelectTable(3))):add(nn.CMulTable())
-    local concat = nn.ConcatTable()
-    concat:add(forgetGate)
-    concat:add(updateGateTransform)
-    concat:add(updateGate)
-    gApp:add(concat)
-    self:add(nn.ParallelTable():add(nn.Identity()):add(gApp))
+    self:add(nn.ConcatTable():add(zGate):add(h))
     self:add(nn.FlattenTable())
-    local nonLinearity = nn.Sequential():add(nn.NarrowTable(1,2)):add(nn.CAddTable(true)):add(nn.Bias(layerSize)):add(nn.Tanh(true))
-    self:add(nn.ConcatTable():add(nonLinearity):add(nn.SelectTable(3)):add(nn.SelectTable(4)))
-    self:add(nn.ConcatTable():add(nn.Sequential():add(nn.NarrowTable(1,2)):add(nn.CMulTable())):add(nn.SelectTable(3)))
+    self:add(nn.ConcatTable():add(nn.NarrowTable(2,2)):add(nn.SelectTable(1)))
+    self:add(nn.ParallelTable():add(nn.CMulTable()):add(nn.Identity()))
+    self:add(nn.FlattenTable())
     self:add(nn.CAddTable(true))
+end
+
+
+function GruStep:getGradInput()
+    return {self.gradInput[1], self.gradInput[2], self.gradInput[3]}
+end
+
+
+function GruStep:getOutputDeltas()
+    return self.gradInput[4]
 end
 
 
