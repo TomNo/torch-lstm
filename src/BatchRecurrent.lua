@@ -18,13 +18,14 @@ function BatchRecurrent:__init(inputSize, layerSize, hist, bNorm)
     for i=1, iSize do
         local linModule = nn.Sequential()
         linModule:add(nn.Linear(inputSize, layerSize, false))
---        if self.bNorm then
---            linModule:add(nn.BatchNormalization(layerSize))
---        end
+        if self.bNorm then
+            linModule:add(nn.BatchNormalization(layerSize))
+        end
         self.sharedInput:add(linModule)
     end
     self:add(self.sharedInput)
     self:add(self.aModule)
+    self.bGradInput = self.gradInput
 end
 
 
@@ -35,7 +36,13 @@ end
 
 function BatchRecurrent:backward(input, gradOutput)
     local batchSize = input:size(1) / self.history
-    self.gradInput:resizeAs(input)
+    local linInput = self.aModule.inputSize / self.layerSize
+    self.bGradInput:resize(input:size(1)*linInput, self.layerSize)
+    self.gradInput = {}
+    for i=1, self.aModule.inputSize / self.layerSize do
+        table.insert(self.gradInput, self.bGradInput[{{(i - 1)*input:size(1)+1,  i *input:size(1)}}])
+    end
+
     for i = #self.aModule.modules, 1, -1 do
         local interval
         if self.aModule.revert then
@@ -43,16 +50,21 @@ function BatchRecurrent:backward(input, gradOutput)
         else
             interval = { { (i - 1) * batchSize + 1, i * batchSize } }
         end
-
         local step = self.aModule.modules[i]
         local aInput = {}
         for i=1, #self.sharedInput.output do
             table.insert(aInput, self.sharedInput.output[i][interval])
         end
         step:backward(aInput, gradOutput[interval])
-        self.sharedInput.gradInput = self.gradInput[interval]
-        self.sharedInput:backward(input[interval], step:getGradInput())
+        local stepGrad = step:getGradInput()
+        for y=1, #stepGrad do
+            self.gradInput[y][interval]:copy(stepGrad[y])
+        end
     end
+    self.sharedInput:backward(input, self.gradInput)
+    self.gradInput = self.bGradInput
+    self.gradInput:resizeAs(self.sharedInput.gradInput)
+    self.gradInput:copy(self.sharedInput.gradInput)
     return self.gradInput
 end
 
