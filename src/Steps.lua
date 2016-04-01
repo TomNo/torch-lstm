@@ -13,6 +13,7 @@ function Steps:__init(layerSize, history)
     self.layerSize = layerSize
     self:_setStepModule()
     self.inputSize = self.step.inputSize
+    self.revert = false
     -- copies of first step module
     self:add(self.step)
     for _ = 2, self.history do
@@ -38,7 +39,13 @@ function Steps:updateOutput(input)
     self.output:resize(input:size(1), self.step.layerSize)
     for i = 1, input:size(1) / self.batchSize do
         local step = self.modules[i]
-        local interval = { { (i - 1) * self.batchSize + 1, i * self.batchSize } }
+        local interval
+        if not self.revert then
+            interval = { { (i - 1) * self.batchSize + 1, i * self.batchSize } }
+        else
+            interval = { { (self.history - i) * self.batchSize + 1, (self.history - i + 1) * self.batchSize } }
+        end
+
         step:forward(input[interval])
         self.output[interval]:copy(step.output)
     end
@@ -47,30 +54,24 @@ end
 
 
 function Steps:updateGradInput(input, gradOutput)
-    self.gradInput:resizeAs(input)
-    for i = #self.modules, 1, -1 do
-        local interval = { { (i - 1) * self.batchSize + 1, i * self.batchSize } }
-        local step = self.modules[i]
-        step:updateGradInput(input[interval], gradOutput[interval])
-        self.gradInput[interval]:copy(step:getGradInput())
-    end
-    return self.gradInput
+    error("This method should not be used, use backward instead.")
 end
 
 
 function Steps:accGradParameters(input, gradOutput)
-    for i = #self.modules, 1, -1 do
-        local interval = { { (i - 1) * self.batchSize + 1, i * self.batchSize } }
-        local step = self.modules[i]
-        step:accGradParameters(input[interval], gradOutput[interval])
-    end
+    error("This method should not be used, use backward instead.")
 end
 
 
 function Steps:backward(input, gradOutput)
     self.gradInput:resizeAs(input)
     for i = #self.modules, 1, -1 do
-        local interval = { { (i - 1) * self.batchSize + 1, i * self.batchSize } }
+        local interval
+        if not self.revert then
+            interval = { { (i - 1) * self.batchSize + 1, i * self.batchSize } }
+        else
+            interval = { { (self.history - i) * self.batchSize + 1, (self.history - i + 1) * self.batchSize } }
+        end
         local step = self.modules[i]
         step:backward(input[interval], gradOutput[interval])
         self.gradInput[interval]:copy(step:getGradInput())

@@ -1,8 +1,7 @@
 require 'torch'
 require 'nn'
-require 'Split'
-require 'Revert'
 require 'BatchRecurrent'
+require 'SharedInput'
 
 
 local Bidirectional = torch.class("nn.Bidirectional", "nn.BatchRecurrent")
@@ -29,11 +28,11 @@ function Bidirectional:__init(inputSize, layerSize, hist, bNorm)
     if bNorm then
         self.bModule:add(nn.BatchNormalization(self.aModule.inputSize))
     end
-    self.bModule:add(nn.Revert())
-    self.bModule:add(self.aModule:clone())
-    self.bModule:add(nn.Revert())
+    local bModule = self.aModule:clone()
+    bModule.revert = true
+    self.bModule:add(bModule)
 
-    local concat = nn.ConcatTable()
+    local concat = nn.SharedInput()
     concat:add(self.fModule)
     concat:add(self.bModule)
     self:add(concat)
