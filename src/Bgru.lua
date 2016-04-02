@@ -8,7 +8,7 @@ local Bgru = torch.class('nn.Bgru', 'nn.Bidirectional')
 
 
 function Bgru:_setActualModule()
-    self.aModule = nn.Gru(self.inputSize, self.layerSize, self.history, self.bNorm)
+    self.aModule = nn.Gru(self.inputSize, self.aSize, self.history, self.bNorm)
 end
 
 
