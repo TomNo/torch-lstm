@@ -35,8 +35,9 @@ end
 
 function SharedInput:backward(input, gradOutput, scale)
     self.gradInput:resizeAs(input)
-    self.gradInput:zero()
-    for i=1, #self.modules do
+    self.modules[1]:backward(input, gradOutput[1], scale)
+    self.gradInput:copy(self.modules[1].gradInput)
+    for i=2, #self.modules do
         self.modules[i]:backward(input, gradOutput[i], scale)
         self.gradInput:add(self.modules[i].gradInput)
     end
