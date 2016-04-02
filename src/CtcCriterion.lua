@@ -24,8 +24,6 @@ function CtcCriterion:__init(history)
     self.history = history
     self.grads = torch.Tensor()
     self.ctc = cpu_ctc
-    -- remove the log operation of the softmax
-    self.exp = nn.Exp()
 
 end
 
@@ -38,7 +36,7 @@ function CtcCriterion:updateOutput(input, target)
     for _=1, seqCount do
         table.insert(sizes, self.history)
     end
-    local costs = self.ctc(self.exp(input), self.grads, labels, sizes)
+    local costs = self.ctc(input, self.grads, labels, sizes)
     self.output = sumTable(costs)
     return self.output
 end
@@ -68,7 +66,7 @@ end
 
 
 function CtcCriterion:updateGradInput(input, target)
-    return self.exp:backward(input, self.grads)
+    return self.grads
 end
 
 
