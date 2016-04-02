@@ -289,20 +289,23 @@ function NeuralNetwork:train(dataset, cv_dataset)
         self.model:training()
         print('==> doing epoch ' .. epoch .. ' on training data.')
         local time = sys.clock()
---        dataset:startBatchIteration(self.conf.parallel_sequences,
---            self.conf.truncate_seq,
---            self.conf.shuffle_sequences,
---            self.conf.random_shift,
---            self.conf.overlap)
-        dataset:startParallelSeq(self.conf.parallel_sequences, self.conf.truncate_seq, self.conf.shuffle_sequences)
+        if not self.conf.full_sequences then
+            dataset:startBatchIteration(self.conf.parallel_sequences,
+                self.conf.truncate_seq,
+                self.conf.shuffle_sequences,
+                self.conf.random_shift,
+                self.conf.overlap)
+        else
+            dataset:startParallelSeq(self.conf.parallel_sequences, self.conf.truncate_seq, self.conf.shuffle_sequences)
+        end
+
         local e_error = 0
         local e_predictions = 0
         local i_count = 0
 --        local grad_clips_accs = 0
         local b_count = 0
         while true do
---            self.inputs, self.labels = dataset:nextBatch()
-            local inputs, labels, sizes = dataset:nextParallelSeq()
+            local inputs, labels, sizes = dataset:nextBatch()
             if inputs == nil then
                 break
             end
@@ -521,14 +524,17 @@ function NeuralNetwork:test(dataset)
     local b_count = 0
     local i_count = 0
     self.model:evaluate()
---    dataset:startBatchIteration(self.conf.parallel_sequences,
---                                self.conf.truncate_seq)
-    dataset:startParallelSeq(self.conf.parallel_sequences,
+    if not self.conf.full_sequences then
+        dataset:startBatchIteration(self.conf.parallel_sequences,
+                                    self.conf.truncate_seq)
+    else
+        dataset:startParallelSeq(self.conf.parallel_sequences,
                              self.conf.truncate_seq,
                              false)
+    end
+
     while true do
---        self.inputs, self.labels = dataset:nextBatch()
-        local inputs, labels, sizes = dataset:nextParallelSeq()
+        local inputs, labels, sizes = dataset:nextBatch()
         if inputs == nil then
             break
         end

@@ -5,6 +5,7 @@ torch.setdefaulttensortype('torch.FloatTensor')
 
 -- Sequential dataset used for sequential training
 
+--TODO this must be refactored, some iteration class should be created
 
 local TrainSeqDs = torch.class('TrainSeqDs')
 
@@ -145,6 +146,7 @@ function TrainSeqDs:startParallelSeq(b_size, h_size, shuffle, convertLabels)
     self.b_size = b_size
     self.b_count = h_size * b_size
     self.convertLabels = convertLabels or true
+    self.nextBatch = self.nextParallelSeq
 end
 
 
@@ -274,7 +276,7 @@ function TrainSeqDs:_prepareSeqData(restDataIndex)
     return true
 end
 
-function TrainSeqDs:nextBatch()
+function TrainSeqDs:nextClassicBatch()
     while self.a_seq_index + self.b_count > self.seq_data:size(1) do
         local status = self:_prepareSeqData(self.a_seq_index)
         if status then
@@ -311,6 +313,7 @@ function TrainSeqDs:startBatchIteration(b_size, h_size, shuffle, rShift,
     self:_prepareSeqData()
     self.overlap = overlap or false
     self.rShilt = rShift or false
+    self.nextBatch = self.nextClassicBatch
 end
 --
 --function TrainSeqDs:startFractionIteration(shuffle)
