@@ -95,34 +95,6 @@ function LstmStep:__init(layerSize)
 end
 
 
-function LstmStep:updateGradInput(input, gradOutput)
-    local nGradOutput, nCellGradOutput
-    if self.nStep then
-        nGradOutput = self.nStep():getOutputDeltas()
-        nCellGradOutput = self.nStep():getCellDeltas()
-        gradOutput:add(nGradOutput)
-    end
-
-    local currentGradOutput = gradOutput
-    local currentModule = self.modules[#self.modules]
-    for i = #self.modules - 1, 1, -1 do
-        local previousModule = self.modules[i]
-        -- adding cell deltas
-        if currentModule == self.cellActs and nCellGradOutput then
-            currentGradOutput[1]:add(nCellGradOutput)
-        end
-        currentGradOutput = currentModule:updateGradInput(previousModule.output,
-            currentGradOutput)
-        currentModule.gradInput = currentGradOutput
-        currentModule = previousModule
-    end
-    currentGradOutput = currentModule:updateGradInput(self:currentInput(input),
-        currentGradOutput)
-    self.gradInput = currentGradOutput
-    return currentGradOutput
-end
-
-
 function LstmStep:backward(input, gradOutput, scale)
     scale = scale or 1
     local nGradOutput, nCellGradOutput
