@@ -43,7 +43,7 @@ end
 function AddLinear:updateGradInput(input, gradOutput)
     self.gradInput = self.gradInputBackup
     nn.Linear.updateGradInput(self, input[2], gradOutput)
-    self.gradInput = { gradOutput:clone(), self.gradInput }
+    self.gradInput = { gradOutput, self.gradInput }
     return self.gradInput
 end
 
