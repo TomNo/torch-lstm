@@ -3,7 +3,9 @@ require 'nn'
 require 'rnn'
 require 'cutorch'
 require 'cunn'
+require 'ParallelTable'
 
+torch.class("nn.RegularTanh", "nn.Tanh")
 
 --TODO generalize - to much code duplication :D!!!
 
@@ -121,7 +123,6 @@ function LstmTest:testCorrectForwardBackward()
         b_output[i] = b:backward(i_b, torch.ones(1))
     end
     local e_b = torch.cat(b_output):view(history, 1)
-
     tester:assertTensorEq(o_a, o_b, cond, "Outputs do not match")
 
     for i = 1, history do
@@ -223,10 +224,6 @@ function GruTest:testCorrectForwardBackward()
     local b_params = b:getParameters()
     a_params:fill(w_const)
     b_params:fill(w_const)
-    -- element research has biases on input gate, which does not work well
-    -- with this implementation as we are using batch normalization on the inputs
-    -- and bias is added in hidden to hidden activations -> set bias to zero
-    b_params[8] = 0
     local i_a = torch.ones(history, 1)
     local i_b = torch.ones(1)
     local o_a = a:forward(i_a)
