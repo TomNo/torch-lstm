@@ -19,29 +19,12 @@ end
 
 
 function Step:updateGradInput(input, gradOutput)
-    if self.nStep then
-        local nGradOutput = self.nStep():getOutputDeltas()
-        gradOutput:add(nGradOutput)
-    end
-    local currentGradOutput = gradOutput
-    local currentModule = self.modules[#self.modules]
-    for i = #self.modules - 1, 1, -1 do
-        local previousModule = self.modules[i]
-        currentGradOutput = currentModule:updateGradInput(previousModule.output,
-            currentGradOutput)
-        currentModule.gradInput = currentGradOutput
-        currentModule = previousModule
-    end
-    currentGradOutput = currentModule:updateGradInput(self:currentInput(input),
-        currentGradOutput)
-    self.gradInput = currentGradOutput
-    return currentGradOutput
+    error("This method should not be used, use backward instead.")
 end
 
 
 function Step:accGradParameters(input, gradOutput, scale)
-    nn.Sequential.accGradParameters(self, self:currentInput(input), gradOutput,
-        scale)
+    error("This method should not be used, use backward instead.")
 end
 
 
