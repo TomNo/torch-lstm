@@ -1,7 +1,6 @@
 require 'torch'
 require 'nn'
 require 'Step'
-require 'Bias'
 require 'Split'
 require 'AddLinear'
 
@@ -51,7 +50,7 @@ function GruStep:__init(layerSize)
     local gApp = nn.Sequential():add(nn.ConcatTable():add(gates):add(nn.SelectTable(3)))
     gApp:add(nn.FlattenTable())
     local updateGateTransform = nn.Sequential():add(nn.SelectTable(1)):add(nn.UpdateGateTransform())
-    local forgetGate = nn.Sequential():add(nn.NarrowTable(2, 2)):add(nn.CMulTable()):add(nn.Linear(layerSize, layerSize, false))
+    local forgetGate = nn.Sequential():add(nn.NarrowTable(2, 2)):add(nn.CMulTable()):add(nn.Linear(layerSize, layerSize))
     local updateGate = nn.Sequential():add(nn.ConcatTable():add(nn.SelectTable(1)):add(nn.SelectTable(3))):add(nn.CMulTable())
     local concat = nn.ConcatTable()
     concat:add(forgetGate)
@@ -60,7 +59,7 @@ function GruStep:__init(layerSize)
     gApp:add(concat)
     self:add(nn.ParallelTable():add(nn.Identity()):add(gApp))
     self:add(nn.FlattenTable())
-    local nonLinearity = nn.Sequential():add(nn.NarrowTable(1,2)):add(nn.CAddTable(true)):add(nn.Bias(layerSize)):add(nn.Tanh(true))
+    local nonLinearity = nn.Sequential():add(nn.NarrowTable(1,2)):add(nn.CAddTable(true)):add(nn.Tanh(true))
     self:add(nn.ConcatTable():add(nonLinearity):add(nn.SelectTable(3)):add(nn.SelectTable(4)))
     self:add(nn.ConcatTable():add(nn.Sequential():add(nn.NarrowTable(1,2)):add(nn.CMulTable())):add(nn.SelectTable(3)))
     self:add(nn.CAddTable(true))
