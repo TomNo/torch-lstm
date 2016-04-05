@@ -63,6 +63,8 @@ NeuralNetwork.REC_RELU = "rec_relu"
 NeuralNetwork.B_REC_TANH = "brec_tanh"
 NeuralNetwork.B_REC_LOGISTIC = "brec_logistic"
 NeuralNetwork.B_REC_RELU = "brec_relu"
+NeuralNetwork.IREC_RELU = "irec_relu"
+NeuralNetwork.B_IREC_RELU = "birec_relu"
 NeuralNetwork.MULTICLASS_CLASSIFICATION = "multiclass_classification"
 NeuralNetwork.CTC = "ctc"
 NeuralNetwork.SOFTMAX = "softmax"
@@ -218,6 +220,10 @@ function NeuralNetwork:_addLayer(layer, p_layer)
     elseif layer.type == NeuralNetwork.FEED_FORWARD_RELU then
         self.model:add(nn.Linear(p_layer.size, layer.size))
         self.model:add(nn.ReLU())
+    elseif layer.type == NeuralNetwork.IREC_RELU then
+        self.model:add(nn.IRecLayer(nn.ReLU, p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
+    elseif layer.type == NeuralNetwork.B_IREC_RELU then
+        self.model:add(nn.BIRecLayer(nn.ReLU, p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.REC_RELU then
         self.model:add(nn.RecLayer(nn.ReLU, p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.REC_TANH then

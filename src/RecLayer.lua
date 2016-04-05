@@ -7,15 +7,6 @@ require 'Bidirectional'
 require 'AddLinear'
 
 
-local ILinear = torch.class("nn.ILinear", 'nn.Linear')
-
-
-function ILinear:reset()
-    self.bias:zero()
-    self.weight:copy(torch.eye(self.weight:size(1)))
-end
-
-
 local RecSteps = torch.class("nn.RecSteps", "nn.Steps")
 
 
@@ -65,6 +56,30 @@ end
 
 function BiRecLayer:_setActualModule()
     self.aModule = nn.RecSteps(self.aType, self.aSize, self.history)
+end
+
+
+--http://arxiv.org/pdf/1504.00941.pdf
+local IRecLayer = torch.class("nn.IRecLayer", "nn.RecLayer")
+
+
+function ireset(self)
+    self.bias:zero()
+    self.weight:copy(torch.eye(self.weight:size(1)))
+end
+
+
+function IRecLayer:__init(actType, inputSize, layerSize, hist, bNorm)
+    nn.RecLayer.__init(self, actType, inputSize, layerSize, hist, bNorm)
+    self:findModules("nn.AddLinear")[1].reset = ireset
+end
+
+
+local BIRecLayer = torch.class("nn.BIRecLayer", "nn.BiRecLayer")
+
+function BIRecLayer:_setActualModule()
+    self.aModule = nn.RecSteps(self.aType, self.aSize, self.history)
+    self.aModule:findModules("nn.AddLinear")[1].reset = ireset
 end
 
 --eof
