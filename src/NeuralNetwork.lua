@@ -308,7 +308,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
         local e_error = 0
         local e_predictions = 0
         local i_count = 0
---        local grad_clips_accs = 0
+        local grad_clips_accs = 0
         local b_count = 0
         while true do
             local inputs, labels, sizes = dataset:nextBatch()
@@ -333,18 +333,22 @@ function NeuralNetwork:train(dataset, cv_dataset)
                 self.model:backward(inputs, self.criterion:backward(outputs, labels))
                 -- apply gradient clipping
                 self.m_grad_params:clamp(CLIP_MIN, CLIP_MAX)
---                grad_clips_accs = self.m_grad_params:eq(1):cat(self.m_grad_params:eq(-1)):sum() + grad_clips_accs
-                --        print("Max gradient: " .. self.m_grad_params:max())
-                --        print("Min gradient: " .. self.m_grad_params:min())
-                --        print("Average gradient: " .. self.m_grad_params:sum() / self.m_grad_params:nElement())
+                if self.conf.verbose then
+                    grad_clips_accs = self.m_grad_params:eq(1):cat(self.m_grad_params:eq(-1)):sum() + grad_clips_accs
+                    print("Max gradient: " .. self.m_grad_params:max())
+                    print("Min gradient: " .. self.m_grad_params:min())
+                    print("Average gradient: " .. self.m_grad_params:sum() / self.m_grad_params:nElement())
+                end
                 return err, self.m_grad_params
             end -- feval
             self.optim(feval, self.m_params, opt_params, state)
         end -- mini batch
         collectgarbage()
         print("Epoch has taken " .. sys.clock() - time .. " seconds.")
---        print("Gradient clippings occured " .. grad_clips_accs)
---        grad_clips_accs = 0
+        if self.conf.verbose then
+            print("Gradient clippings occured " .. grad_clips_accs)
+            grad_clips_accs = 0
+        end
         print(string.format("Error rate on training set is: %.2f%% and loss is: %.4f",
             e_predictions / i_count * 100, e_error / b_count))
         if self.conf.learning_rate_decay and epoch % self.conf.decay_every == 0 then
