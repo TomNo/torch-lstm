@@ -17,20 +17,7 @@ local function backward(self, input, gradOutput, scale)
                 self.gradInput[i] = module.gradInput:clone()
             end
         else -- means we have another table
-            if not self.gradInput[i] or torch.type(self.gradInput[i]) ~= "table" then
-                self.gradInput[i] = {}
-            end
-            for index, val in ipairs(module.gradInput) do
-                if not torch.isTensor(val) then
-                    error("Maximal level of depth is 2.")
-                end
-                if not self.gradInput[i][index] then
-                    self.gradInput[i][index] = val:clone()
-                else
-                    self.gradInput[i][index]:resizeAs(val)
-                    self.gradInput[i][index]:copy(val)
-                end
-            end
+            self.gradInput[i] = module.gradInput
         end
     end
     return self.gradInput
