@@ -82,7 +82,7 @@ function LstmStep:__init(layerSize)
     tmp:add(nn.Sequential():add(nn.SelectTable(1)):add(nn.LinearScale(layerSize)))
     --  end
     tmp:add(nn.SelectTable(2))
-    tmp:add(nn.Sequential():add(nn.SelectTable(1)):add(nn.Tanh(true)))
+    tmp:add(nn.Sequential():add(nn.SelectTable(1)):add(nn.Tanh()))
     self:add(tmp) -- 8th module
     -- output of the model at this stage is <output_gate peephole act, o_acts, cell_acts>
     -- finalize the o_acts and apply sigmoid
