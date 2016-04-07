@@ -18,6 +18,7 @@ require 'ParallelTable'
 -- TODO rewrite using nngraph
 -- TODO procesing sequences by uterrances
 -- TODO baidu ctc https://github.com/baidu-research/warp-ctc/blob/master/torch_binding/TUTORIAL.md
+-- TODO refactor all ff layers to one class
 
 torch.setdefaulttensortype('torch.FloatTensor')
 
@@ -215,12 +216,21 @@ function NeuralNetwork:_addLayer(layer, p_layer)
         return
     elseif layer.type == NeuralNetwork.FEED_FORWARD_LOGISTIC then
         self.model:add(nn.Linear(p_layer.size, layer.size))
+        if layer.batch_normalization then
+            self.model:add(nn.BatchNormalization(layer.size))
+        end
         self.model:add(nn.Sigmoid())
     elseif layer.type == NeuralNetwork.FEED_FORWARD_TANH then
         self.model:add(nn.Linear(p_layer.size, layer.size))
+        if layer.batch_normalization then
+            self.model:add(nn.BatchNormalization(layer.size))
+        end
         self.model:add(nn.Tanh())
     elseif layer.type == NeuralNetwork.FEED_FORWARD_RELU then
         self.model:add(nn.Linear(p_layer.size, layer.size))
+        if layer.batch_normalization then
+            self.model:add(nn.BatchNormalization(layer.size))
+        end
         self.model:add(nn.ReLU())
     elseif layer.type == NeuralNetwork.IREC_RELU then
         self.model:add(nn.IRecLayer(nn.ReLU, p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
