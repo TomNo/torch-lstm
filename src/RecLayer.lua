@@ -28,7 +28,7 @@ function RecStep:__init(aType, layerSize)
     nn.Step.__init(self, layerSize)
     self.inputSize = layerSize
     self:add(nn.AddLinear(layerSize, layerSize))
-    self:add(aType())
+    self:add(aType(true))
 end
 
 
