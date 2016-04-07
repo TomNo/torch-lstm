@@ -6,18 +6,34 @@
             "type": "input"
         },
         {
-            "size": 512,
+            "size": 1024,
             "name": "output1",
             "bias": 1.0,
-            "type": "brec_relu",
+            "type": "feedforward_tanh",
             "dropout": 0.0,
             "batch_normalization": true
         },
         {
-            "size": 512,
+            "size": 1024,
             "name": "output1",
             "bias": 1.0,
-            "type": "brec_relu",
+            "type": "feedforward_tanh",
+            "dropout": 0.0,
+            "batch_normalization": true
+        },
+        {
+            "size": 1024,
+            "name": "output1",
+            "bias": 1.0,
+            "type": "feedforward_tanh",
+            "dropout": 0.0,
+            "batch_normalization": true
+        },
+        {
+            "size": 1024,
+            "name": "output1",
+            "bias": 1.0,
+            "type": "feedforward_tanh",
             "dropout": 0.0,
             "batch_normalization": true
         },
