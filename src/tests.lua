@@ -59,10 +59,10 @@ for i = 1, #classes do
     tester:add(testFunction, "BasicTest" .. classNames[i])
 end
 
-LstmTest = {}
+LstmTest = torch.TestSuite()
 
 
-function LstmTest:testBatched()
+function LstmTest.LstmBatched()
     local iSize = 3
     local oSize = 3
     local hSize = 3
@@ -100,7 +100,7 @@ function LstmTest:testBatched()
     end
 end
 
-function LstmTest:testCorrectForwardBackward()
+function LstmTest.LstmForwardBackward()
     local w_const = 0.3
     local history = 4
     local a = nn.Lstm(1, 1, history)
@@ -134,9 +134,9 @@ function LstmTest:testCorrectForwardBackward()
 end
 
 
-BlstmTests = {}
+BlstmTests = torch.TestSuite()
 
-function BlstmTests:testBatched()
+function BlstmTests:BlstmBatched()
     local iSize = 3
     local oSize = 6
     local hSize = 3
@@ -174,9 +174,9 @@ function BlstmTests:testBatched()
     end
 end
 
-GruTest = {}
+GruTest = torch.TestSuite()
 
-function GruTest:testBatched()
+function GruTest:GruBatched()
     local iSize = 3
     local oSize = 3
     local hSize = 3
@@ -215,7 +215,7 @@ function GruTest:testBatched()
 end
 
 
-function GruTest:testCorrectForwardBackward()
+function GruTest:GruForwardBackward()
     local w_const = 0.3
     local history = 4
     local a = nn.Gru(1, 1, history)
@@ -276,7 +276,7 @@ end
 tester:add(LstmTest)
 tester:add(BlstmTests)
 tester:add(GruTest)
-tester:add(testCtc)
+tester:add(testCtc, "CtcForwardBackward")
 
 
 tester:run()
