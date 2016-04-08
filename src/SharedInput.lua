@@ -15,12 +15,12 @@ end
 
 
 function SharedInput:updateGradInput(...)
-    error("This method should never be called, user backward instead.")
+    error("This method should never be called, use backward instead.")
 end
 
 
 function SharedInput:accGradParameters(...)
-    error("This method should never be called, user backward instead.")
+    error("This method should never be called, use backward instead.")
 end
 
 
