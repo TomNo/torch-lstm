@@ -42,6 +42,13 @@
             "batch_normalization": true
         },
         {
+            "size": 1024,
+            "name": "blstm5",
+            "bias": 1.0,
+            "type": "feedforward_relu",
+            "batch_normalization": true
+        },
+        {
             "size": 4016,
             "name": "output",
             "bias": 1.0,
