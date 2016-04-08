@@ -18,8 +18,6 @@ function LstmStep:__init(layerSize)
     nn.Step.__init(self, layerSize)
     self.inputSize = 4 * layerSize
     self.cellStates = nil
-    -- all input activations
-    local i_acts = nn.Identity()
     -- all output activations
     local o_acts = nn.AddLinear(layerSize, 4 * layerSize)
     -- set bias to 1 because of the forget gate activation
