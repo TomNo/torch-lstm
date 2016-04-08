@@ -127,6 +127,10 @@ function NeuralNetwork:init()
         self:_addCriterion(self.desc.layers[#self.desc.layers])
     else
         self.model = nn.Sequential()
+        self.model.forward = function(self, input, sizes)
+            self:apply(function(m) m.sizes = sizes end)
+            return self:updateOutput(input)
+        end
         self:_createLayers()
         if cudnn then
             cudnn.convert(self.model, cudnn)
@@ -336,7 +340,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
                 end
                 -- reset gradients
                 self.m_grad_params:zero()
-                local outputs = self.model:forward(inputs)
+                local outputs = self.model:forward(inputs, sizes)
                 local err = self.criterion:forward(outputs, labels)
                 --        err = err/self.inputs:size(1)
                 e_error = e_error + err
@@ -561,7 +565,7 @@ function NeuralNetwork:test(dataset)
             break
         end
         b_count = b_count + 1
-        local output = self.model:forward(inputs)
+        local output = self.model:forward(inputs, sizes)
         i_count = i_count + sumTable(sizes)
         c_error = c_error + self.criterion(output, labels)
         g_error = g_error + self:_calculateError(output, labels)
