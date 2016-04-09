@@ -6,43 +6,21 @@
             "type": "input"
         },
         {
-            "size": 1024,
+            "size": 2048,
             "name": "blstm1",
             "bias": 1.0,
             "type": "feedforward_relu",
             "batch_normalization": true
         },
         {
-            "size": 1024,
-            "name": "blstm2",
-            "bias": 1.0,
-            "type": "feedforward_relu",
-            "batch_normalization": true
-        },
-
-        {
-            "size": 1024,
-            "name": "blstm3",
-            "bias": 1.0,
-            "type": "feedforward_relu",
-            "batch_normalization": true
-        },
-        {
-            "size": 1024,
-            "name": "blstm4",
-            "bias": 1.0,
-            "type": "feedforward_relu",
-            "batch_normalization": true
-        },
-        {
-            "size": 1024,
+            "size": 2048,
             "name": "blstm5",
             "bias": 1.0,
             "type": "feedforward_relu",
             "batch_normalization": true
         },
         {
-            "size": 1024,
+            "size": 2048,
             "name": "blstm5",
             "bias": 1.0,
             "type": "feedforward_relu",
