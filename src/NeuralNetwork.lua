@@ -110,6 +110,7 @@ function NeuralNetwork:init()
         local loadCuda = function()
             --cudnn tanh cannot handle non-contingenouse arrays
             torch.class("nn.RegularTanh", "nn.Tanh")
+            torch.class("nn.RegularSigmoid", "nn.Sigmoid")
             require 'cutorch'
             require 'cunn'
             require 'cudnn'

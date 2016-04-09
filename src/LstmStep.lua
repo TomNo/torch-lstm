@@ -38,7 +38,7 @@ function LstmStep:__init(layerSize)
     -- output of the model at this stage is <c_states + o_acts, i_acts + f_acts, peepholes acts, cell states>
     -- input and forget gate activation
     local items = nn.ConcatTable()
-    items:add(nn.Sequential():add(nn.NarrowTable(2, 2)):add(nn.CAddTable(true)):add(nn.Sigmoid(true)):add(nn.Split(2)))
+    items:add(nn.Sequential():add(nn.NarrowTable(2, 2)):add(nn.CAddTable(true)):add(nn.RegularSigmoid(true)):add(nn.Split(2)))
     items:add(nn.Sequential():add(nn.SelectTable(4)))
     --    --  -- divide rest activations between cell state and output gate
     items:add(nn.Sequential():add(nn.SelectTable(1)):add(nn.Split(2)))
