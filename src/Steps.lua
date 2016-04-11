@@ -87,8 +87,9 @@ function Steps:backward(input, gradOutput)
             interval = { { (self.history - i) * self.batchSize + 1, (self.history - i + 1) * self.batchSize } }
         end
         local step = self.modules[i]
-        step.gradInput = self.gradInput[interval]
+--        step.gradInput = self.gradInput[interval]
         step:backward(input[interval], gradOutput[interval])
+        self.gradInput[interval]:copy(step:getGradInput())
     end
     return self.gradInput
 end
