@@ -38,10 +38,13 @@ function testClass(class)
         input = torch.ones(bSize * history, lSize * 4):cuda()
     elseif class.__typename == "nn.GruStep" then
         input = torch.ones(bSize * history, lSize * 3):cuda()
+    elseif class.__typename == "nn.LinearScale" then
+        local tmp = torch.ones(bSize * history, lSize):cuda()
+        input = {tmp, tmp}
     else
         input = torch.ones(bSize * history, lSize):cuda()
     end
-
+    instance:apply(function (m) m.sizes = {3, 3} end)
     local output = instance:forward(input)
     local err = instance:backward(input, output:clone())
 end
@@ -52,12 +55,12 @@ end
 
 classes = { nn.LinearScale, nn.LstmStep, nn.Lstm, nn.Blstm, nn.GruStep, nn.Gru, nn.Bgru, nn.RecLayer}
 
---for i = 1, #classes do
---    local testFunction = function()
---        testClass(classes[i])
---    end
---    tester:add(testFunction, "BasicTest" .. classNames[i])
---end
+for i = 1, #classes do
+    local testFunction = function()
+        testClass(classes[i])
+    end
+    tester:add(testFunction, "BasicTest" .. classNames[i])
+end
 
 
 function testBatch(module)
@@ -67,6 +70,8 @@ function testBatch(module)
     local bSize = 2
     local b = module(iSize, oSize, hSize)
     local a = module(iSize, oSize, hSize)
+    b:apply(function (m) m.sizes = {3, 3} end)
+    a:apply(function (m) m.sizes = {3, 3} end)
     local x_b, _ = b:getParameters()
     local x_a, _ = a:getParameters()
     x_b:copy(x_a)
@@ -93,12 +98,12 @@ end
 local batchModules = { nn.Bgru, nn.Blstm, nn.Gru, nn.Lstm}
 local batchNames = { "Bgru", "Blstm", "Lstm", "Gru", "Bgru", "Blstm"}
 
---for i = 1, #batchModules do
---    local testFunction = function()
---        testBatch(batchModules[i])
---    end
---    tester:add(testFunction, "TestBatched".. batchNames[i])
---end
+for i = 1, #batchModules do
+    local testFunction = function()
+        testBatch(batchModules[i])
+    end
+    tester:add(testFunction, "TestBatched".. batchNames[i])
+end
 
 
 --function testBidirectional(bModule, uModule)
@@ -143,11 +148,6 @@ function testForwardBachward(module, e_output, e_error)
     local input = torch.ones(history, 1)
     local output = obj:forward(input)
     local error = obj:backward(input, torch.ones(history, 1)):squeeze()
-    print(output)
-    print(e_output)
-
-    print(error)
-    print(e_error)
     tester:assertTensorEq(output:squeeze(), e_output, cond, "Outputs do not match.")
     tester:assertTensorEq(error, e_error, cond, "Errors do not match.")
 end
@@ -193,8 +193,8 @@ end
 
 
 tester:add(LstmTest)
---tester:add(GruTest)
---tester:add(testCtc, "CtcForwardBackward")
+tester:add(GruTest)
+tester:add(testCtc, "CtcForwardBackward")
 
 
 tester:run()
