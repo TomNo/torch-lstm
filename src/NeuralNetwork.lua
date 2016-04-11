@@ -112,9 +112,7 @@ function NeuralNetwork:init()
 --            torch.class("nn.RegularTanh", "nn.Tanh")
             require 'cutorch'
             require 'cunn'
-            require 'cudnn'
---            nn.Tanh = cudnn.Tanh
---            nn.Sigmoid = cudnn.Sigmoid
+--            require 'cudnn'
             local _, aMem = cutorch.getMemoryUsage()
             print("Available memory is: " .. aMem)
         end
