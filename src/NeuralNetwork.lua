@@ -109,12 +109,12 @@ function NeuralNetwork:init()
     if self.conf.cuda then
         local loadCuda = function()
             --cudnn tanh cannot handle non-contingenouse arrays
-            torch.class("nn.RegularTanh", "nn.Tanh")
+--            torch.class("nn.RegularTanh", "nn.Tanh")
             require 'cutorch'
             require 'cunn'
             require 'cudnn'
-            nn.Tanh = cudnn.Tanh
-            nn.Sigmoid = cudnn.Sigmoid
+--            nn.Tanh = cudnn.Tanh
+--            nn.Sigmoid = cudnn.Sigmoid
             local _, aMem = cutorch.getMemoryUsage()
             print("Available memory is: " .. aMem)
         end

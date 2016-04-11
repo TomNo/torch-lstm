@@ -52,12 +52,12 @@ end
 
 classes = { nn.LinearScale, nn.LstmStep, nn.Lstm, nn.Blstm, nn.GruStep, nn.Gru, nn.Bgru, nn.RecLayer}
 
-for i = 1, #classes do
-    local testFunction = function()
-        testClass(classes[i])
-    end
-    tester:add(testFunction, "BasicTest" .. classNames[i])
-end
+--for i = 1, #classes do
+--    local testFunction = function()
+--        testClass(classes[i])
+--    end
+--    tester:add(testFunction, "BasicTest" .. classNames[i])
+--end
 
 
 function testBatch(module)
@@ -93,12 +93,12 @@ end
 local batchModules = { nn.Bgru, nn.Blstm, nn.Gru, nn.Lstm}
 local batchNames = { "Bgru", "Blstm", "Lstm", "Gru", "Bgru", "Blstm"}
 
-for i = 1, #batchModules do
-    local testFunction = function()
-        testBatch(batchModules[i])
-    end
-    tester:add(testFunction, "TestBatched".. batchNames[i])
-end
+--for i = 1, #batchModules do
+--    local testFunction = function()
+--        testBatch(batchModules[i])
+--    end
+--    tester:add(testFunction, "TestBatched".. batchNames[i])
+--end
 
 
 --function testBidirectional(bModule, uModule)
@@ -137,11 +137,17 @@ function testForwardBachward(module, e_output, e_error)
     local w_const = 0.3
     local history = 4
     local obj = module(1, 1, history)
+    obj:apply(function (m) m.sizes = {4} end)
     local params = obj:getParameters()
     params:fill(w_const)
     local input = torch.ones(history, 1)
     local output = obj:forward(input)
     local error = obj:backward(input, torch.ones(history, 1)):squeeze()
+    print(output)
+    print(e_output)
+
+    print(error)
+    print(e_error)
     tester:assertTensorEq(output:squeeze(), e_output, cond, "Outputs do not match.")
     tester:assertTensorEq(error, e_error, cond, "Errors do not match.")
 end
@@ -187,8 +193,8 @@ end
 
 
 tester:add(LstmTest)
-tester:add(GruTest)
-tester:add(testCtc, "CtcForwardBackward")
+--tester:add(GruTest)
+--tester:add(testCtc, "CtcForwardBackward")
 
 
 tester:run()

@@ -17,126 +17,116 @@ local LstmStep = torch.class('nn.LstmStep', 'nn.Step')
 function LstmStep:__init(layerSize)
     nn.Step.__init(self, layerSize)
     self.inputSize = 4 * layerSize
-    self.cellStates = nil
+    self.layerSize = layerSize
+    self.cellDeltas = torch.Tensor()
     -- all output activations
-    local o_acts = nn.AddLinear(layerSize, 4 * layerSize)
-    -- set bias to 1 because of the forget gate activation
-    o_acts.bias:fill(1)
-    --  -- forget and input peepholes cell acts
-    local fg_peep = nn.Sequential():add(nn.ConcatTable():add(nn.LinearScale(layerSize)):add(nn.LinearScale(layerSize))):add(nn.JoinTable(2))
-    -- add forget and input peepholes
-    local c_acts = nn.ConcatTable():add(fg_peep):add(nn.Identity())
+    self.oActs = nn.AddLinear(layerSize, 4 * layerSize)
+    self.iPeeps = nn.LinearScale(layerSize)
+    self.fPeeps = nn.LinearScale(layerSize)
+    self.oPeeps = nn.LinearScale(layerSize)
+    self.ifSigmoid = nn.Sigmoid()
+    self.icTanh = nn.Tanh()
+    self.iScale = nn.CMulTable()
+    self.fScale = nn.CMulTable()
+    self.cState = nn.CAddTable(true)
+    self.oSigmoid = nn.Sigmoid()
+    self.ocTanh = nn.Tanh()
+    self.oScale = nn.CMulTable()
 
-    -- container for summed input and output activations
-    -- that is divided in half
-    local io_acts = nn.Sequential():add(o_acts):add(nn.Split(2))
---    io_acts:add(nn.ParallelTable():add(i_acts):add(o_acts))
---    io_acts:add(nn.CAddTable(true)):add(nn.Split(2))
-    -- sum half of the activations with peepholes
-    self:add(nn.ParallelTable():add(io_acts):add(c_acts))
-    self:add(nn.FlattenTable())
-    -- output of the model at this stage is <c_states + o_acts, i_acts + f_acts, peepholes acts, cell states>
-    -- input and forget gate activation
-    local items = nn.ConcatTable()
-    items:add(nn.Sequential():add(nn.NarrowTable(2, 2)):add(nn.CAddTable(true)):add(nn.Sigmoid(true)):add(nn.Split(2)))
-    items:add(nn.Sequential():add(nn.SelectTable(4)))
-    --    --  -- divide rest activations between cell state and output gate
-    items:add(nn.Sequential():add(nn.SelectTable(1)):add(nn.Split(2)))
-    self:add(items)
-    self:add(nn.FlattenTable())
-    -- output of the model at this stage is <i_acts, f_acts, cell states, c_acts, o_acts>
-    items = nn.ConcatTable()
-    -- forward i_acts
-    items:add(nn.SelectTable(1))
-    -- apply squashing function to cell state
-    items:add(nn.Sequential():add(nn.SelectTable(4)):add(nn.RegularTanh()))
-    -- apply forgeting
-    items:add(nn.Sequential():add(nn.NarrowTable(2, 2)):add(nn.CMulTable()))
-    -- forward o_acts
-    items:add(nn.SelectTable(5))
-    -- output of the model at this stage is <i_acts, c_acts, f_acts, o_acts>
-    self:add(items)
-    items = nn.ConcatTable()
-    -- scale cell state by input
-    items:add(nn.Sequential():add(nn.NarrowTable(1, 2)):add(nn.CMulTable()))
-    -- forward
-    items:add(nn.Sequential():add(nn.SelectTable(3)))
-    items:add(nn.Sequential():add(nn.SelectTable(4)))
-    -- output of the model at this stage is <c_acts, f_acts, o_acts>
-    -- add previous cell state
-    self:add(items)
-    local tmp = nn.ConcatTable()
-    tmp:add(nn.Sequential():add(nn.NarrowTable(1, 2)):add(nn.CAddTable(true)))
-    tmp:add(nn.Sequential():add(nn.SelectTable(3)))
-    self.cellActs = tmp
-    self:add(tmp)
-    -- output of the model at this stage is <c_acts, o_acts>
-    -- scale by peephole from the cell state to output gate and apply sigmoid to output gate,
-    -- also apply squashing function to the cell states
-    tmp = nn.ConcatTable()
-    --  if self.b_norm then
-    --    cell_acts:add(nn.Sequential():add(nn.SelectTable(1)):add(LinearNoBias.new(layerSize, layerSize)):add(nn.BatchNormalization(layerSize)))
-    --  else
-    tmp:add(nn.Sequential():add(nn.SelectTable(1)):add(nn.LinearScale(layerSize)))
-    --  end
-    tmp:add(nn.SelectTable(2))
-    tmp:add(nn.Sequential():add(nn.SelectTable(1)):add(nn.Tanh()))
-    self:add(tmp) -- 8th module
-    -- output of the model at this stage is <output_gate peephole act, o_acts, cell_acts>
-    -- finalize the o_acts and apply sigmoid
-    tmp = nn.ConcatTable():add(nn.Sequential():add(nn.NarrowTable(1, 2)):add(nn.CAddTable(true)):add(nn.Sigmoid(true)))
-    -- just forward cell acts
-    tmp:add(nn.SelectTable(3))
-    -- result is <output>
-    self:add(tmp)
-    self:add(nn.CMulTable())
+    self.iInt = {{}, {1, self.layerSize} }
+    self.fInt = {{}, {self.layerSize + 1, 2 * self.layerSize}}
+    self.cInt = {{}, {2*self.layerSize + 1, 3*self.layerSize} }
+    self.oInt = {{}, {3*self.layerSize + 1, 4* self.layerSize} }
+    self.ifInt = {{}, {1, 2*self.layerSize} }
+
+    local mNames = {"oActs", "iPeeps", "fPeeps", "oPeeps", "ifSigmoid",
+        "icTanh", "iScale", "fScale", "cState", "oSigmoid", "ocTanh", "oScale"}
+    for i=1, #mNames do
+        self:add(self[mNames[i]])
+    end
+
+    self.gradInput = torch.Tensor()
 end
 
 
-function LstmStep:backward(input, gradOutput, scale)
-    scale = scale or 1
-    local nGradOutput, nCellGradOutput
-    if self.nStep then
-        nGradOutput = self.nStep():getOutputDeltas()
-        nCellGradOutput = self.nStep():getCellDeltas()
-        gradOutput:add(nGradOutput)
-    end
+function LstmStep:updateOutput(input)
+    local aInput = self:currentInput(input)
+    self.input = input
+    self.pOutput = aInput[1][2]
+    self.pCellOutput = aInput[2]
+    self.oActs:forward({input, self.pOutput})
+    -- peepholes
+    self.iPeeps:forward({self.oActs.output[self.iInt], self.pCellOutput})
+    self.fPeeps:forward({self.oActs.output[self.fInt], self.pCellOutput})
+    self.ifSigmoid:forward(self.oActs.output[self.ifInt])
 
-    local currentGradOutput = gradOutput
-    local currentModule = self.modules[#self.modules]
-    for i = #self.modules - 1, 1, -1 do
-        local previousModule = self.modules[i]
-        -- adding cell deltas
-        if currentModule == self.cellActs and nCellGradOutput then
-            currentGradOutput[1]:add(nCellGradOutput)
-        end
-        currentGradOutput = currentModule:backward(previousModule.output, currentGradOutput, scale)
-        currentModule.gradInput = currentGradOutput
-        currentModule = previousModule
+    self.icTanh:forward(self.oActs.output[self.cInt])
+    self.iScale:forward({self.icTanh.output, self.ifSigmoid.output[self.iInt]})
+    self.fScale:forward({self.pCellOutput, self.ifSigmoid.output[self.fInt]})
+
+    self.cState:forward({self.iScale.output, self.fScale.output})
+
+    self.oPeeps:forward({self.oActs.output[self.oInt], self.cState.output})
+    self.oSigmoid:forward(self.oActs.output[self.oInt])
+    self.ocTanh:forward(self.cState.output)
+    self.oScale:forward({self.ocTanh.output, self.oSigmoid.output})
+    self.output = self.oScale.output
+    return self.output
+end
+
+function LstmStep:backward(input, gradOutput, scale)
+    local function backward(obj, i, g)
+        obj:backward(i, g, scale)
     end
-    currentGradOutput = currentModule:backward(self:currentInput(input), currentGradOutput, scale)
-    self.gradInput = currentGradOutput
-    return currentGradOutput
+    self.gradInput:resizeAs(input)
+    self.gradInput:zero()
+    if self.nStep then
+        gradOutput:add(self.nStep():getOutputDeltas())
+    end
+    backward(self.oScale, {self.ocTanh.output, self.oSigmoid.output}, gradOutput)
+    backward(self.ocTanh, self.cState.output, self.oScale.gradInput[1])
+    if self.nStep then
+        self.ocTanh.gradInput:add(self.nStep():getCellDeltas())
+    end
+    self.oSigmoid.gradInput = self.gradInput[self.oInt]
+    backward(self.oSigmoid, self.oActs.output[self.oInt], self.oScale.gradInput[2])
+    backward(self.oPeeps, {self.oActs.output[self.oInt], self.cState.output}, self.oSigmoid.gradInput)
+    self.ocTanh.gradInput:add(self.oPeeps.gradInput)
+    backward(self.cState, {self.iScale.output, self.fScale.output}, self.ocTanh.gradInput)
+    backward(self.fScale, {self.pCellOutput, self.ifSigmoid.output[self.fInt]}, self.cState.gradInput[2])
+    backward(self.iScale, {self.icTanh.output, self.ifSigmoid.output[self.iInt]}, self.cState.gradInput[1])
+    self.icTanh.gradInput = self.gradInput[self.cInt]
+    backward(self.icTanh, self.oActs.output[self.cInt], self.iScale.gradInput[1])
+    self.ifSigmoid.gradInput = self.gradInput[self.ifInt]
+    backward(self.ifSigmoid, self.oActs.output[self.ifInt], self.iScale.gradInput[2]:cat(self.fScale.gradInput[2]))
+    backward(self.fPeeps, {self.oActs[self.fInt], self.pCellOutput}, self.ifSigmoid.gradInput[self.fInt])
+    self.cellDeltas:resizeAs(self.fPeeps.gradInput)
+    self.cellDeltas:copy(self.fPeeps.gradInput)
+    backward(self.iPeeps, {self.oActs[self.iInt], self.pCellOutput}, self.ifSigmoid.gradInput[self.iInt])
+    self.cellDeltas:add(self.iPeeps.gradInput)
+    self.cellDeltas:add(self.fScale.gradInput[1])
+    backward(self.oActs, {input, self.pOutput}, self.gradInput)
+    return self.gradInput
 end
 
 
 function LstmStep:getGradInput()
-    return self.gradInput[1][1]
+    return self.gradInput
 end
 
 
 function LstmStep:getCellStates()
-    return self.cellActs.output[1]
+    return self.cState.output
 end
 
 
 function LstmStep:getCellDeltas()
-    return self.gradInput[2]
+    return self.cellDeltas
 end
 
 
 function LstmStep:getOutputDeltas()
-    return self.gradInput[1][2]
+    return self.oActs.gradInput[2]
 end
 
 

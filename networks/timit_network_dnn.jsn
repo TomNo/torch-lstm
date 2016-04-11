@@ -9,7 +9,7 @@
             "size": 1024,
             "name": "output1",
             "bias": 1.0,
-            "type": "feedforward_tanh",
+            "type": "feedforward_relu",
             "dropout": 0.0,
             "batch_normalization": true
         },
@@ -17,7 +17,7 @@
             "size": 1024,
             "name": "output1",
             "bias": 1.0,
-            "type": "feedforward_tanh",
+            "type": "feedforward_relu",
             "dropout": 0.0,
             "batch_normalization": true
         },
@@ -25,7 +25,7 @@
             "size": 1024,
             "name": "output1",
             "bias": 1.0,
-            "type": "feedforward_tanh",
+            "type": "feedforward_relu",
             "dropout": 0.0,
             "batch_normalization": true
         },
@@ -33,7 +33,7 @@
             "size": 1024,
             "name": "output1",
             "bias": 1.0,
-            "type": "feedforward_tanh",
+            "type": "feedforward_relu",
             "dropout": 0.0,
             "batch_normalization": true
         },

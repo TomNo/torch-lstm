@@ -26,13 +26,14 @@ end
 
 
 function LinearScale:updateOutput(input)
+    self.output = input[1]
+    input = input[2]
     if input:dim() == 1 then
-        self.output:resizeAs(input)
-        self.output:copy(input)
-        self.output:cmul(self.weight)
+        error("Only batch mode is supported.")
     elseif input:dim() == 2 then
+        -- TODO add some defensive coding
         self.output:resizeAs(input)
-        self.output:cmul(input, self:viewWeights(input:size(1)))
+        self.output:addcmul(input, self:viewWeights(input:size(1)))
     else
         error('Input must be vector or matrix')
     end
@@ -47,15 +48,12 @@ end
 
 
 function LinearScale:updateGradInput(input, gradOutput)
+    input = input[2]
     if self.gradInput then
-        local nElement = self.gradInput:nElement()
-        self.gradInput:resizeAs(input)
-        if self.gradInput:nElement() ~= nElement then
-            self.gradInput:zero()
-        end
         if input:dim() == 1 then
-            self.gradInput:addcmul(self.weight, gradOutput)
+            error("Only batch mode is supported.")
         elseif input:dim() == 2 then
+            self.gradInput:resizeAs(input)
             self.gradInput:cmul(gradOutput, self:viewWeights(gradOutput:size(1)))
         end
 
@@ -66,6 +64,7 @@ end
 
 function LinearScale:accGradParameters(input, gradOutput, scale)
     scale = scale or 1
+    input = input[2]
     if input:dim() == 1 then
         self.gradWeight:addcmul(input, gradOutput)
     else
