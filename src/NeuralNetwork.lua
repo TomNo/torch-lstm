@@ -463,7 +463,7 @@ function NeuralNetwork:forward(data, overlap)
     if data:size(1) < self.conf.truncate_seq then
         local padding = torch.zeros(self.conf.truncate_seq - data:size(1), data:size(2))
         local input = data:cat(padding, 1)
-        return self.model:forward(input:cuda())[{{1, data:size(1)}}]:float()
+        return self.model:forward(input:cuda(), {data:size(1)})[{{1, data:size(1)}}]:float()
     end
 
     local step = self.conf.truncate_seq - 2 * overlap
@@ -472,6 +472,10 @@ function NeuralNetwork:forward(data, overlap)
     local overhang = data:size(1) % step
 
     local input = torch.Tensor(iSeqs * self.conf.truncate_seq, data:size(2))
+    local sizes = {}
+    for i=1, iSeqs do
+        table.insert(sizes, self.conf.truncate_seq)
+    end
     for y=1, self.conf.truncate_seq do
         for i=1, iSeqs do
             input[(y - 1) * iSeqs + i] = data[(i - 1) *  step + y]
@@ -492,9 +496,9 @@ function NeuralNetwork:forward(data, overlap)
 --    end
     --calculate first the end of the sequence
     local eInt = {{data:size(1) - self.conf.truncate_seq + 1, data:size(1)}}
-    output[eInt]:copy(self.model:forward(data[eInt]:cuda()))
+    output[eInt]:copy(self.model:forward(data[eInt]:cuda(), {data[eInt]:size(1)}))
     -- cut off output that goes after each other between overlap and overlap + step time step
-    local modelOutput = self.model:forward(input)
+    local modelOutput = self.model:forward(input, sizes)
     -- copy the first overlap - begining of the whole sequence
     for i=0, overlap - 1 do
         output[{{i+1}}]:copy(modelOutput[{{i * iSeqs + 1}}])
