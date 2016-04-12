@@ -363,8 +363,9 @@ function NeuralNetwork:train(dataset, cv_dataset)
             print("Gradient clippings occured " .. grad_clips_accs)
             grad_clips_accs = 0
         end
+        e_error = e_error / b_count
         print(string.format("Error rate on training set is: %.2f%% and loss is: %.4f",
-            e_predictions / i_count * 100, e_error / b_count))
+            e_predictions / i_count * 100, e_error))
         if self.conf.learning_rate_decay and epoch % self.conf.decay_every == 0 then
             local nLr =  opt_params.learningRate * self.conf.learning_rate_decay
             local mLr =  self.conf.min_learning_rate
@@ -418,7 +419,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
         end
 
         if not self.conf.validate_every or epoch % self.conf.validate_every == 0 then
-            if cv_dataset and not self.e_stopping:validate(self, cv_dataset) then
+            if cv_dataset and not self.e_stopping:validate(self, cv_dataset, e_error) then
                 print("No lowest validation error was reached -> stopping training.")
                 self.m_params:copy(self.e_stopping:getBestWeights())
                 break

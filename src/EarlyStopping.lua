@@ -17,21 +17,22 @@ function EarlyStopping:getBestWeights()
 end
 
 
-function EarlyStopping:validate(net, dataset)
+function EarlyStopping:validate(net, dataset, trError)
+    trError = trError or 0
     local cv_g_error, cv_c_error = net:test(dataset)
     print(string.format("Error on cv set set is: %.2f%% and loss is: %.4f",
         cv_g_error, cv_c_error))
 --    local cv_c_error = net:test(dataset)
 --    print(string.format("Loss on cv set is: %.4f", cv_c_error))
-
-    if cv_c_error < self.lError then
+    trError = trError + cv_c_error
+    if trError < self.lError then
         if self.bWeights then
             self.bWeights:copy(net.m_params)
         else
             self.bWeights = net.m_params:clone()
         end
         self.noBest = 1
-        self.lError = cv_c_error
+        self.lError = trError
     else
         self.noBest = self.noBest + 1
     end
