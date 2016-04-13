@@ -6,7 +6,7 @@ require 'Split'
 require 'AddLinear'
 
 
--- INFO no batch norm because it performs worse
+-- BN for hidden-hidden
 -- http://arxiv.org/pdf/1510.01378.pdf
 
 
@@ -20,7 +20,7 @@ function LstmStep:__init(layerSize)
     self.layerSize = layerSize
     self.cellDeltas = torch.Tensor()
     -- all output activations
-    self.oActs = nn.AddLinear(layerSize, 4 * layerSize)
+    self.oActs = nn.Linear(layerSize, 4 * layerSize, false)
     self.iPeeps = nn.LinearScale(layerSize)
     self.fPeeps = nn.LinearScale(layerSize)
     self.oPeeps = nn.LinearScale(layerSize)
@@ -32,6 +32,7 @@ function LstmStep:__init(layerSize)
     self.oSigmoid = nn.Sigmoid()
     self.ocTanh = nn.Tanh()
     self.oScale = nn.CMulTable()
+    self.BNorm = nn.BatchNormalization(4 * layerSize)
 
     self.iInt = {{}, {1, self.layerSize} }
     self.fInt = {{}, {self.layerSize + 1, 2 * self.layerSize}}
@@ -40,7 +41,8 @@ function LstmStep:__init(layerSize)
     self.ifInt = {{}, {1, 2*self.layerSize} }
 
     local mNames = {"oActs", "iPeeps", "fPeeps", "oPeeps", "ifSigmoid",
-        "icTanh", "iScale", "fScale", "cState", "oSigmoid", "ocTanh", "oScale"}
+        "icTanh", "iScale", "fScale", "cState", "oSigmoid", "ocTanh", "oScale",
+        "BNorm"}
     for i=1, #mNames do
         self:add(self[mNames[i]])
     end
@@ -54,20 +56,23 @@ function LstmStep:updateOutput(input)
     self.input = input
     self.pOutput = aInput[1][2]
     self.pCellOutput = aInput[2]
-    self.oActs:forward({input, self.pOutput})
+    self.oActs:forward(self.pOutput)
+    self.BNorm:forward(self.oActs.output)
+    input:add(self.BNorm.output)
+    local out = input
     -- peepholes
-    self.iPeeps:forward({self.oActs.output[self.iInt], self.pCellOutput})
-    self.fPeeps:forward({self.oActs.output[self.fInt], self.pCellOutput})
-    self.ifSigmoid:forward(self.oActs.output[self.ifInt])
+    self.iPeeps:forward({out[self.iInt], self.pCellOutput})
+    self.fPeeps:forward({out[self.fInt], self.pCellOutput})
+    self.ifSigmoid:forward(out[self.ifInt])
 
-    self.icTanh:forward(self.oActs.output[self.cInt])
+    self.icTanh:forward(out[self.cInt])
     self.iScale:forward({self.icTanh.output, self.ifSigmoid.output[self.iInt]})
     self.fScale:forward({self.pCellOutput, self.ifSigmoid.output[self.fInt]})
 
     self.cState:forward({self.iScale.output, self.fScale.output})
 
-    self.oPeeps:forward({self.oActs.output[self.oInt], self.cState.output})
-    self.oSigmoid:forward(self.oActs.output[self.oInt])
+    self.oPeeps:forward({out[self.oInt], self.cState.output})
+    self.oSigmoid:forward(out[self.oInt])
     self.ocTanh:forward(self.cState.output)
     self.oScale:forward({self.ocTanh.output, self.oSigmoid.output})
     self.output = self.oScale.output
@@ -105,7 +110,8 @@ function LstmStep:backward(input, gradOutput, scale)
     backward(self.iPeeps, {self.oActs[self.iInt], self.pCellOutput}, self.ifSigmoid.gradInput[self.iInt])
     self.cellDeltas:add(self.iPeeps.gradInput)
     self.cellDeltas:add(self.fScale.gradInput[1])
-    backward(self.oActs, {input, self.pOutput}, self.gradInput)
+    backward(self.BNorm, self.oActs.output, self.gradInput)
+    backward(self.oActs, self.pOutput, self.BNorm.gradInput)
     return self.gradInput
 end
 
@@ -126,7 +132,7 @@ end
 
 
 function LstmStep:getOutputDeltas()
-    return self.oActs.gradInput[2]
+    return self.oActs.gradInput
 end
 
 
