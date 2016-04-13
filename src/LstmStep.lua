@@ -50,10 +50,7 @@ end
 
 
 function LstmStep:updateOutput(input)
-    local aInput = self:currentInput(input)
-    self.input = input
-    self.pOutput = aInput[1][2]
-    self.pCellOutput = aInput[2]
+    self.input, self.pOutput, self.pCellOutput = self:currentInput(input)
     self.oActs:forward({input, self.pOutput})
     -- peepholes
     self.iPeeps:forward({self.oActs.output[self.iInt], self.pCellOutput})
@@ -141,7 +138,7 @@ function LstmStep:currentInput(input)
         pOutput = self.zTensor:expand(input:size(1), self.layerSize)
         pCellStates = pOutput
     end
-    return { { input, pOutput }, pCellStates }
+    return input, pOutput, pCellStates
 end
 
 --eof
