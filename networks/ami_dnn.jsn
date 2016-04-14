@@ -6,21 +6,28 @@
             "type": "input"
         },
         {
-            "size": 2048,
+            "size": 1024,
             "name": "blstm1",
             "bias": 1.0,
             "type": "feedforward_relu",
             "batch_normalization": true
         },
         {
-            "size": 2048,
+            "size": 1024,
             "name": "blstm5",
             "bias": 1.0,
             "type": "feedforward_relu",
             "batch_normalization": true
         },
         {
-            "size": 2048,
+            "size": 1024,
+            "name": "blstm5",
+            "bias": 1.0,
+            "type": "feedforward_relu",
+            "batch_normalization": true
+        },
+        {
+            "size": 1024,
             "name": "blstm5",
             "bias": 1.0,
             "type": "feedforward_relu",
