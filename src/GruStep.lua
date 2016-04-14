@@ -1,68 +1,94 @@
 require 'torch'
 require 'nn'
 require 'Step'
-require 'Split'
 require 'AddLinear'
 
-local UpdateGateTransform = torch.class("nn.UpdateGateTransform", "nn.Identity")
-
-
--- (1 - z)
-function UpdateGateTransform:updateOutput(input)
-    self.output:resizeAs(input)
-    self.output:copy(input)
-    self.output:mul(-1)
-    self.output:add(1)
-    return self.output
-end
-
-
-function UpdateGateTransform:updateGradInput(input, gradOutput)
-    nn.Identity.updateGradInput(self, input, gradOutput)
-    self.gradInput:mul(-1)
-    return self.gradInput
-end
-
+-- TODO previous output is scale differently than it should be
+-- original paper http://arxiv.org/pdf/1406.1078v3.pdf
+-- do reset first -> http://arxiv.org/abs/1412.3555
 
 local GruStep = torch.class('nn.GruStep', 'nn.Step')
-
 
 function GruStep:__init(layerSize)
     nn.Step.__init(self, layerSize)
     self.inputSize = 3 * layerSize
-    local inputs = nn.ParallelTable():add(nn.Split(3)):add(nn.Identity())
-    self:add(inputs)
-    self:add(nn.FlattenTable())
-    self:add(nn.ConcatTable():add(nn.SelectTable(1)):add(nn.NarrowTable(2,3)))
-    -- hidden to hidden activations
-    -- set bias to 1 because of the forget(reset) gate activation
-    local hActs = nn.AddLinear(layerSize, 2 * layerSize)
-    hActs.bias:fill(1)
-    local gates = nn.Sequential()
-    local gInputs = nn.ConcatTable()
-    gInputs:add(nn.Sequential():add(nn.NarrowTable(1,2)):add(nn.JoinTable(2)))
-    gInputs:add(nn.Sequential():add(nn.SelectTable(3)))
-    gates:add(gInputs)
-    gates:add(hActs)
-    gates:add(nn.Sigmoid(true))
-    gates:add(nn.Split())
-    -- now we have gate activations - time to apply them
-    local gApp = nn.Sequential():add(nn.ConcatTable():add(gates):add(nn.SelectTable(3)))
-    gApp:add(nn.FlattenTable())
-    local updateGateTransform = nn.Sequential():add(nn.SelectTable(1)):add(nn.UpdateGateTransform())
-    local forgetGate = nn.Sequential():add(nn.NarrowTable(2, 2)):add(nn.CMulTable()):add(nn.Linear(layerSize, layerSize))
-    local updateGate = nn.Sequential():add(nn.ConcatTable():add(nn.SelectTable(1)):add(nn.SelectTable(3))):add(nn.CMulTable())
-    local concat = nn.ConcatTable()
-    concat:add(forgetGate)
-    concat:add(updateGateTransform)
-    concat:add(updateGate)
-    gApp:add(concat)
-    self:add(nn.ParallelTable():add(nn.Identity()):add(gApp))
-    self:add(nn.FlattenTable())
-    local nonLinearity = nn.Sequential():add(nn.NarrowTable(1,2)):add(nn.CAddTable(true)):add(nn.Tanh(true))
-    self:add(nn.ConcatTable():add(nonLinearity):add(nn.SelectTable(3)):add(nn.SelectTable(4)))
-    self:add(nn.ConcatTable():add(nn.Sequential():add(nn.NarrowTable(1,2)):add(nn.CMulTable())):add(nn.SelectTable(3)))
-    self:add(nn.CAddTable(true))
+
+    self.rzActs = nn.AddLinear(layerSize, 2 * layerSize)
+    self.rzSigmoid = nn.Sigmoid()
+    self.aTanh = nn.Tanh()
+    self.aActs = nn.AddLinear(layerSize, layerSize)
+
+    self.rScale = nn.CMulTable()
+    self.zScale = nn.CMulTable()
+    self.zpScale = nn.CMulTable()
+    self.sum = nn.CAddTable(true)
+
+    self.rzInt = {{}, {1, 2*layerSize} }
+    self.rInt = {{}, {1, layerSize} }
+    self.zInt = {{}, {layerSize + 1, 2 *layerSize} }
+    self.aInt = {{}, {layerSize * 2 + 1, layerSize * 3}}
+
+    local mNames = {"rzActs", "rzSigmoid", "aTanh", "aActs", "rScale",
+        "zpScale", "sum" }
+    for i=1, #mNames do
+        self:add(self[mNames[i]])
+    end
+    self.gradInput = torch.Tensor()
+end
+
+
+function GruStep:updateOutput(input)
+    local aInput = self:currentInput(input)
+    self.input = aInput[1]
+    self.pOutput = aInput[2]
+
+    self.rzActs:forward({self.input[self.rzInt], self.pOutput})
+    self.rzSigmoid:forward(self.rzActs.output)
+    self.rScale:forward({self.rzSigmoid.output[self.rInt], self.pOutput})
+    self.aActs:forward({self.input[self.aInt], self.rScale.output})
+    self.aTanh:forward(self.input[self.aInt])
+    self.zScale:forward({self.pOutput, self.rzSigmoid.output[self.zInt]})
+    self.rzSigmoid.output[self.zInt]:mul(-1)
+    self.rzSigmoid.output[self.zInt]:add(1)
+    self.zpScale:forward({self.aTanh.output, self.rzSigmoid.output[self.zInt]})
+    self.sum:forward({self.zScale.output, self.zpScale.output})
+    self.output = self.sum.output
+    return self.sum.output
+end
+
+function GruStep:backward(input, gradOutput, scale)
+    local function backward(module, input, gradOutput)
+        module:backward(input, gradOutput, scale)
+    end
+    if self.nStep then
+        gradOutput:add(self.nStep():getOutputDeltas())
+    end
+    self.gradInput:resizeAs(input)
+    backward(self.sum, {self.zScale.output, self.zpScale.output}, gradOutput)
+    backward(self.zpScale, {self.aTanh.output, self.rzSigmoid.output[self.zInt]}, self.sum.gradInput[2])
+    self.zpScale.gradInput[2]:mul(-1)
+    self.rzSigmoid.output[self.zInt]:add(-1)
+    self.rzSigmoid.output[self.zInt]:mul(-1)
+    backward(self.zScale, {self.pOutput, self.rzSigmoid.output[self.zInt]}, self.sum.gradInput[1])
+    self.aTanh.gradInput = self.gradInput[self.aInt]
+    backward(self.aTanh, self.input[self.aInt], self.zpScale.gradInput[1])
+    backward(self.aActs, {self.input[self.aInt], self.rScale.output}, self.aTanh.gradInput)
+    backward(self.rScale, {self.rzSigmoid.output[self.rInt], self.pOutput}, self.aActs.gradInput[2])
+    self.rzSigmoid.gradInput = self.gradInput[self.rzInt]
+    self.zpScale.gradInput[2]:add(self.zScale.gradInput[2])
+    backward(self.rzSigmoid , self.rzActs.output, self.rScale.gradInput[1]:cat(self.zpScale.gradInput[2]))
+    backward(self.rzActs, {self.input[self.rzInt], self.pOutput}, self.rzSigmoid.gradInput)
+    self.rzActs.gradInput[2]:add(self.rScale.gradInput[2])
+    self.rzActs.gradInput[2]:add(self.zScale.gradInput[1])
+    return self.gradInput
+end
+
+function GruStep:getGradInput()
+    return self.gradInput
+end
+
+function GruStep:getOutputDeltas()
+    return self.rzActs.gradInput[2]
 end
 
 
