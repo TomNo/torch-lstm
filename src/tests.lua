@@ -107,34 +107,45 @@ for i = 1, #batchModules do
 end
 
 
---function testBidirectional(bModule, uModule)
---    local iSize = 2
---    local oSize = 4
---    local hSize = 3
---    local input = torch.ones(hSize, iSize)
---    local bModel = bModule(iSize, oSize, hSize)
---    print(bModel)
---    local uModel = uModule(iSize, oSize/2, hSize)
---    print(input)
---    local uOutput =uModule:forward(input)
---    print(input)
---    local bOutput = bModule:forward(input)
---    tester:assertTensorEq(bOutput[{{1, oSize/2}}], uOutput, "Outputs do not match.")
---    tester:assertTensorEq(bOutput[{{oSize/2 + 1, oSize}}], uOutput, "Outputs do not match.")
---
---end
---
---
---local biModules = { nn.Bgru, nn.Blstm}
---local uModules = {nn.Gru, nn.Lstm}
---local biNames = { "Gru", "Lstm"}
---
---for i = 1, #biModules do
---    local testFunction = function()
---        testBidirectional(biModules[i], uModules[i])
---    end
---    tester:add(testFunction, "TestBidirectional".. biNames[i])
---end
+function testBidirectional(bModule, uModule)
+    local iSize = 2
+    local oSize = 4
+    local hSize = 3
+    local wConst = 0.3
+    local input = torch.ones(hSize, iSize)
+    local bModel = bModule(iSize, oSize, hSize)
+    local bx, bdx = bModel:getParameters()
+    bx:fill(wConst)
+    bModel:apply(function (m) m.sizes = {3} end)
+    local uModel = uModule(iSize, oSize/2, hSize)
+    local ux, udx = uModel:getParameters()
+    ux:fill(wConst)
+    uModel:apply(function (m) m.sizes = {3} end)
+
+    local uOutput =uModel:forward(input)
+    local bOutput = bModel:forward(input)
+
+    tester:assertTensorEq(bOutput[{{}, {1, oSize/2}}], uOutput, "Outputs do not match.")
+
+    local rUOutput = uOutput:clone()
+    for i=1, rUOutput:size(1) do
+        rUOutput[i] = uOutput[rUOutput:size(1) + 1 - i]
+    end
+    tester:assertTensorEq(bOutput[{{}, {oSize/2 + 1, oSize}}], rUOutput, "Outputs do not match.")
+
+end
+
+
+local biModules = { nn.Bgru, nn.Blstm}
+local uModules = {nn.Gru, nn.Lstm}
+local biNames = { "Gru", "Lstm"}
+
+for i = 1, #biModules do
+    local testFunction = function()
+        testBidirectional(biModules[i], uModules[i])
+    end
+    tester:add(testFunction, "TestBidirectional".. biNames[i])
+end
 
 LstmTest = torch.TestSuite()
 
