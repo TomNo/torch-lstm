@@ -10,21 +10,23 @@
             "name": "blstm1",
             "bias": 1.0,
             "type": "blstm",
-            "batch_normalization": true
+            "dropout": 0.5,
+            "batch_normalization": false
         },
         {
             "size": 1024,
             "name": "blstm2",
             "bias": 1.0,
             "type": "blstm",
-            "batch_normalization": true
+            "dropout": 0.25,
+            "batch_normalization": false
         },
         {
             "size": 1024,
             "name": "blstm3",
             "bias": 1.0,
             "type": "blstm",
-            "batch_normalization": true
+            "batch_normalization": false
         },
         {
             "size": 4016,
