@@ -2,7 +2,6 @@ require 'torch'
 require 'nn'
 require 'Step'
 require 'LinearScale'
-require 'Split'
 require 'AddLinear'
 
 
