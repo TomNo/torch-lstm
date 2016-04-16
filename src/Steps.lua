@@ -1,3 +1,4 @@
+require 'utils'
 require 'torch'
 require 'nn'
 require 'LstmStep'
@@ -36,32 +37,27 @@ end
 
 
 function Steps:updateOutput(input)
-    self.batchSize = input:size(1) / self.history
     self.output:resize(input:size(1), self.step.layerSize)
-    for i = 1, input:size(1) / self.batchSize do
+    local ptr = 0
+    if self.revert then
+        ptr = input:size(1)
+    end
+    local maxT = #self.bSizes
+    for i = 1, #self.bSizes do
         local step = self.modules[i]
         local interval
         if not self.revert then
-            interval = { { (i - 1) * self.batchSize + 1, i * self.batchSize } }
+            interval = { { ptr + 1, ptr + self.bSizes[i] } }
         else
-            interval = { { (self.history - i) * self.batchSize + 1, (self.history - i + 1) * self.batchSize } }
+            interval = {{ptr - self.bSizes[maxT - i + 1] + 1, ptr}}
         end
         step:forward(input[interval])
-        if self.revert then
-            for s=1,#self.sizes do
-                if self.history - self.sizes[s] > i then
-                    step.output[s]:zero()
-                end
-            end
-        else
-            for s=1,#self.sizes do
-                if self.sizes[s] < i then
-                    step.output[s]:zero()
-                end
-            end
-        end
-
         self.output[interval]:copy(step.output)
+        if self.revert then
+            ptr = ptr - self.bSizes[maxT - i + 1]
+        else
+            ptr = ptr + self.bSizes[i]
+        end
     end
     return self.output
 end
@@ -79,18 +75,30 @@ end
 
 function Steps:backward(input, gradOutput)
     self.gradInput:resizeAs(input)
-    for i = #self.modules, 1, -1 do
+    local ptr = 0
+    if not self.revert then
+        ptr = utils.sumTable(self.bSizes)
+    end
+    local lModule = self.modules[#self.bSizes]
+    local nStepBck = lModule.nStep
+    lModule.nStep = nil
+    for i = #self.bSizes, 1, -1 do
         local interval
-        if not self.revert then
-            interval = { { (i - 1) * self.batchSize + 1, i * self.batchSize } }
+        if self.revert then
+            interval = { { ptr + 1, ptr + self.bSizes[i] } }
         else
-            interval = { { (self.history - i) * self.batchSize + 1, (self.history - i + 1) * self.batchSize } }
+            interval = {{ptr - self.bSizes[#self.bSizes - i + 1] + 1, ptr}}
         end
         local step = self.modules[i]
---        step.gradInput = self.gradInput[interval]
         step:backward(input[interval], gradOutput[interval])
         self.gradInput[interval]:copy(step:getGradInput())
+        if not self.revert then
+            ptr = ptr - self.bSizes[i]
+        else
+            ptr = ptr + self.bSizes[i]
+        end
     end
+    lModule.nStep = nStepBck
     return self.gradInput
 end
 

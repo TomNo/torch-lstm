@@ -1,3 +1,4 @@
+require 'utils'
 require 'torch'
 require 'nn'
 require 'json'
@@ -34,21 +35,6 @@ local function gradClip(element)
     else
         return element
     end
-end
-
-
-function date()
-    return os.date("_%H_%M_%d_%m_%y")
-end
-
-
-local function sumTable(tb)
-    local sum = 0
-    for k,v in pairs(tb) do
-        sum = sum + v
-    end
-
-    return sum
 end
 
 
@@ -125,9 +111,10 @@ function NeuralNetwork:init()
         self:_addCriterion(self.desc.layers[#self.desc.layers])
     else
         self.model = nn.Sequential()
-        self.model.forward = function(self, input, sizes)
-            self:apply(function(m) m.sizes = sizes end)
-            return self:updateOutput(input)
+        self.model.forward = function(mod, input, sizes)
+            local bSizes = utils.getBatchSizes(sizes, self.conf.truncate_seq)
+            mod:apply(function(m) m.bSizes = bSizes end)
+            return mod:updateOutput(input)
         end
         self:_createLayers()
         if cudnn then
@@ -195,7 +182,7 @@ function NeuralNetwork:_createLayers()
 
     for index, layer in ipairs(self.desc.layers) do
         if index > 1 and index ~= #self.desc.layers then
-            if layer.name == nil or layer.bias == nil or layer.size == nil or layer.type == nil then
+            if layer.size == nil or layer.type == nil then
                 error("Layer number: " .. index .. " is missing required attribute.")
             end
             self:_addLayer(self.desc.layers[index], self.desc.layers[index - 1])
@@ -343,7 +330,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
                 --        err = err/self.inputs:size(1)
                 e_error = e_error + err
                 e_predictions = e_predictions + self:_calculateError(outputs, labels)
-                i_count = i_count + sumTable(sizes)
+                i_count = i_count + utils.sumTable(sizes)
                 self.model:backward(inputs, self.criterion:backward(outputs, labels))
                 -- apply gradient clipping
                 self.m_grad_params:clamp(CLIP_MIN, CLIP_MAX)
@@ -397,7 +384,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
                 prefix = self.conf.autosave_prefix .. "_"
             end
             local oString = string.format("%sepoch_%s%s.optimizer", prefix,
-                epoch, date())
+                epoch, utils.date())
             print("Saving optimizer to: " .. oString)
             torch.save(oString, state)
         end
@@ -407,7 +394,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
             if self.conf.autosave_prefix then
                 prefix = self.conf.autosave_prefix .. "_"
             end
-            self:saveModel(prefix .. "epoch_" .. epoch .. date() .. ".model")
+            self:saveModel(prefix .. "epoch_" .. epoch .. utils.date() .. ".model")
         end
 
         if self.conf.autosave_weights then
@@ -415,7 +402,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
             if self.conf.autosave_prefix then
                 prefix = self.conf.autosave_prefix .. "_"
             end
-            self:saveWeights(prefix .. "epoch_" .. epoch .. date() .. ".weights")
+            self:saveWeights(prefix .. "epoch_" .. epoch .. utils.date() .. ".weights")
         end
 
         if not self.conf.validate_every or epoch % self.conf.validate_every == 0 then
@@ -569,7 +556,7 @@ function NeuralNetwork:test(dataset)
         end
         b_count = b_count + 1
         local output = self.model:forward(inputs, sizes)
-        i_count = i_count + sumTable(sizes)
+        i_count = i_count + utils.sumTable(sizes)
         c_error = c_error + self.criterion(output, labels)
         g_error = g_error + self:_calculateError(output, labels)
     end

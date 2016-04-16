@@ -1,3 +1,4 @@
+require 'utils'
 require 'torch'
 require 'NeuralNetwork'
 require 'TrainSeqDs'
@@ -23,7 +24,7 @@ params = cmd:parse(arg)
 if params.log_file == '' then
     params.log_file = "torch"
 end
-params.log_file = params.log_file .. date() .. ".log"
+params.log_file = params.log_file .. utils.date() .. ".log"
 
 cmd:log(params.log_file, params)
 net = NeuralNetwork(params, cmd)

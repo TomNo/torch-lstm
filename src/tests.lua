@@ -3,6 +3,7 @@ require 'nn'
 require 'cutorch'
 require 'cunn'
 require 'ParallelTable'
+require 'utils'
 
 torch.class("nn.RegularTanh", "nn.Tanh")
 torch.class("nn.RegularSigmoid", "nn.Sigmoid")
@@ -45,7 +46,7 @@ function testClass(class)
     else
         input = torch.ones(bSize * history, lSize):cuda()
     end
-    instance:apply(function (m) m.sizes = {3, 3} end)
+    instance:apply(function (m) m.bSizes = utils.getBatchSizes({3, 3}, 3) end)
     local output = instance:forward(input)
     local err = instance:backward(input, output:clone())
 end
@@ -71,8 +72,8 @@ function testBatch(module)
     local bSize = 2
     local b = module(iSize, oSize, hSize)
     local a = module(iSize, oSize, hSize)
-    b:apply(function (m) m.sizes = {3, 3} end)
-    a:apply(function (m) m.sizes = {3, 3} end)
+    b:apply(function (m) m.bSizes = utils.getBatchSizes({3}, hSize) end)
+    a:apply(function (m) m.bSizes = utils.getBatchSizes({3, 3}, hSize) end)
     local x_b, _ = b:getParameters()
     local x_a, _ = a:getParameters()
     x_b:copy(x_a)
@@ -96,7 +97,7 @@ function testBatch(module)
     tester:assertTensorEq(a_errs, e_errs, cond, "Backward pass does not match.")
 end
 
-local batchModules = { nn.Bgru, nn.Blstm, nn.Gru, nn.Lstm}
+local batchModules = { nn.Bgru , nn.Blstm, nn.Gru, nn.Lstm}
 local batchNames = { "Bgru", "Blstm", "Lstm", "Gru", "Bgru", "Blstm"}
 
 for i = 1, #batchModules do
@@ -116,11 +117,11 @@ function testBidirectional(bModule, uModule)
     local bModel = bModule(iSize, oSize, hSize)
     local bx, bdx = bModel:getParameters()
     bx:fill(wConst)
-    bModel:apply(function (m) m.sizes = {3} end)
+    bModel:apply(function (m) m.bSizes = utils.getBatchSizes({3}, 3) end)
     local uModel = uModule(iSize, oSize/2, hSize)
     local ux, udx = uModel:getParameters()
     ux:fill(wConst)
-    uModel:apply(function (m) m.sizes = {3} end)
+    uModel:apply(function (m) m.bSizes = utils.getBatchSizes({3}, 3) end)
 
     local uOutput =uModel:forward(input)
     local bOutput = bModel:forward(input)
@@ -154,7 +155,7 @@ function testForwardBachward(module, e_output, e_error)
     local w_const = 0.3
     local history = 4
     local obj = module(1, 1, history)
-    obj:apply(function (m) m.sizes = {4} end)
+    obj:apply(function (m) m.bSizes = utils.getBatchSizes({4}, 4) end)
     local params = obj:getParameters()
     params:fill(w_const)
     local input = torch.ones(history, 1)
@@ -194,7 +195,7 @@ function testCtc()
     local sizes = {3,3,3}
     local grads = acts:clone():fill(0)
     local f = gpu_ctc(acts, grads, labels, sizes)
-    local sum_f = sumTable(f)
+    local sum_f = utils.sumTable(f)
 
     local cLabels = torch.Tensor({1,2,2,1,2,3,1,4,3})
     local err = b:forward(acts, cLabels)

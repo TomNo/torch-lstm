@@ -1,22 +1,10 @@
 require 'torch'
 require 'nn'
 require 'warp_ctc'
+require 'utils'
 
 --TODO optimize validation vs training
 CtcCriterion, parent = torch.class("nn.CtcCriterion","nn.Criterion")
-
-
-function sumTable(tb)
-    local acc
-    for k, v in ipairs(tb) do
-        if 1 == k then
-            acc = v
-        else
-            acc = acc + v
-        end
-    end
-    return acc
-end
 
 
 function CtcCriterion:__init(history)
@@ -37,7 +25,7 @@ function CtcCriterion:updateOutput(input, target)
         table.insert(sizes, self.history)
     end
     local costs = self.ctc(input, self.grads, labels, sizes)
-    self.output = sumTable(costs)
+    self.output = utils.sumTable(costs)
     return self.output
 end
 
