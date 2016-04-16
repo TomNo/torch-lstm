@@ -38,18 +38,20 @@ end
 function Steps:updateOutput(input)
     self.batchSize = input:size(1) / self.history
     self.output:resize(input:size(1), self.step.layerSize)
-    for i = 1, input:size(1) / self.batchSize do
+    self.output:zero()
+    local maxT = self.sizes[1]
+    for i = 1, maxT do
         local step = self.modules[i]
         local interval
         if not self.revert then
             interval = { { (i - 1) * self.batchSize + 1, i * self.batchSize } }
         else
-            interval = { { (self.history - i) * self.batchSize + 1, (self.history - i + 1) * self.batchSize } }
+            interval = { { (maxT - i) * self.batchSize + 1, (maxT - i + 1) * self.batchSize } }
         end
         step:forward(input[interval])
         if self.revert then
             for s=1,#self.sizes do
-                if self.history - self.sizes[s] > i then
+                if self.history - self.sizes[s] - 1> i then
                     step.output[s]:zero()
                 end
             end
@@ -79,18 +81,23 @@ end
 
 function Steps:backward(input, gradOutput)
     self.gradInput:resizeAs(input)
-    for i = #self.modules, 1, -1 do
+    self.gradInput:zero()
+    local lModule = self.modules[self.sizes[1]]
+    local bNStep = lModule.nStep
+    lModule.nStep = nil
+    local maxT = self.sizes[1]
+    for i = maxT, 1, -1 do
         local interval
         if not self.revert then
             interval = { { (i - 1) * self.batchSize + 1, i * self.batchSize } }
         else
-            interval = { { (self.history - i) * self.batchSize + 1, (self.history - i + 1) * self.batchSize } }
+            interval = { { (maxT - i) * self.batchSize + 1, (maxT - i + 1) * self.batchSize } }
         end
         local step = self.modules[i]
---        step.gradInput = self.gradInput[interval]
         step:backward(input[interval], gradOutput[interval])
         self.gradInput[interval]:copy(step:getGradInput())
     end
+    lModule.nStep = bNStep
     return self.gradInput
 end
 

@@ -12,6 +12,7 @@ require 'RecLayer'
 require 'CtcCriterion'
 require 'rmsprop'
 require 'ParallelTable'
+require 'MaskedCECriterion'
 
 
 -- TODO resolve bgru batchnormalization and bias
@@ -68,7 +69,7 @@ NeuralNetwork.IREC_RELU = "irec_relu"
 NeuralNetwork.B_IREC_RELU = "birec_relu"
 NeuralNetwork.MULTICLASS_CLASSIFICATION = "multiclass_classification"
 NeuralNetwork.CTC = "ctc"
-NeuralNetwork.SOFTMAX = "softmax"
+NeuralNetwork.LINEAR = "linear"
 NeuralNetwork.INPUT = "input"
 NeuralNetwork.LSTM = "lstm"
 NeuralNetwork.BLSTM = "blstm"
@@ -152,7 +153,6 @@ function NeuralNetwork:init()
         end
     end
     self.m_params, self.m_grad_params = self.model:getParameters()
-
     if self.conf.weights then
         self:loadWeights(self.conf.weights)
     end
@@ -176,7 +176,7 @@ end
 
 function NeuralNetwork:_addCriterion(layer)
     if layer.type == NeuralNetwork.MULTICLASS_CLASSIFICATION then
-        self.criterion = nn.ClassNLLCriterion()
+        self.criterion = nn.MaskedCECriterion()
     elseif layer.type == NeuralNetwork.CTC then
         self.criterion = nn.CtcCriterion(self.conf.truncate_seq)
     else
@@ -195,7 +195,7 @@ function NeuralNetwork:_createLayers()
 
     for index, layer in ipairs(self.desc.layers) do
         if index > 1 and index ~= #self.desc.layers then
-            if layer.name == nil or layer.bias == nil or layer.size == nil or layer.type == nil then
+            if layer.size == nil or layer.type == nil then
                 error("Layer number: " .. index .. " is missing required attribute.")
             end
             self:_addLayer(self.desc.layers[index], self.desc.layers[index - 1])
@@ -258,9 +258,8 @@ function NeuralNetwork:_addLayer(layer, p_layer)
         self.model:add(nn.Gru(p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.BGRU then
         self.model:add(nn.Bgru(p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
-    elseif layer.type == NeuralNetwork.SOFTMAX then
+    elseif layer.type == NeuralNetwork.LINEAR then
         self.model:add(nn.Linear(p_layer.size, layer.size))
-        self.model:add(nn.LogSoftMax())
     else
         error("Unknown layer type: " .. layer.type ".")
     end
@@ -340,7 +339,6 @@ function NeuralNetwork:train(dataset, cv_dataset)
                 self.m_grad_params:zero()
                 local outputs = self.model:forward(inputs, sizes)
                 local err = self.criterion:forward(outputs, labels)
-                --        err = err/self.inputs:size(1)
                 e_error = e_error + err
                 e_predictions = e_predictions + self:_calculateError(outputs, labels)
                 i_count = i_count + sumTable(sizes)
@@ -377,16 +375,6 @@ function NeuralNetwork:train(dataset, cv_dataset)
                 opt_params.learningRate = mLr
                 print("Setting learning rate to minimal learning rate: " .. opt_params.learningRate)
             end
-
---            local nMomentum = opt_params.momentum - self.conf.momentum_step
---            if nMomentum < 0 then-- self.conf.max_momentum then
---                print("Not decaying momentum as it is bigger than maximal momentum.")
---                opt_params.momentum = 0 --self.conf.max_momentum
---                print("Setting momentum to maximal momentum: " .. opt_params.momentum)
---            else
---                opt_params.momentum = nMomentum
---                print("Momentum after decay is: " .. opt_params.momentum)
---            end
         end
 
 --        print(string.format("Loss on training set is: %.4f", e_error / b_count))
@@ -461,9 +449,10 @@ function NeuralNetwork:forward(data, overlap)
 
     -- in case of sequence that is shorter than history
     if data:size(1) < self.conf.truncate_seq then
+        local seqSize = data:size(1)
         local padding = torch.zeros(self.conf.truncate_seq - data:size(1), data:size(2))
         local input = data:cat(padding, 1)
-        return self.model:forward(input:cuda(), {data:size(1)})[{{1, data:size(1)}}]:float()
+        return self.model:forward(input:cuda(), {seqSize})[{{1, data:size(1)}}]:float()
     end
 
     local step = self.conf.truncate_seq - 2 * overlap

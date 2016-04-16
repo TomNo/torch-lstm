@@ -3,6 +3,7 @@ require 'nn'
 require 'cutorch'
 require 'cunn'
 require 'ParallelTable'
+require 'MaskedCECriterion'
 
 torch.class("nn.RegularTanh", "nn.Tanh")
 torch.class("nn.RegularSigmoid", "nn.Sigmoid")
@@ -18,6 +19,10 @@ classNames = { "LinearScale", "LstmStep", "Lstm", "Blstm", "GruStep", "Gru", "Bg
 
 cond = 1e-4
 
+
+--[[
+-- Test basic functionality backward/forward of every class
+ ]]
 function testClass(class)
     local lSize = 6
     local iSize = 6
@@ -64,6 +69,10 @@ for i = 1, #classes do
 end
 
 
+
+--[[
+-- Checks that batched output corresponds to classic forward
+ ]]
 function testBatch(module)
     local iSize = 3
     local oSize = 6
@@ -107,6 +116,9 @@ for i = 1, #batchModules do
 end
 
 
+--[[
+-- Checks that bidirectional outputs are the same in both directions
+ ]]
 function testBidirectional(bModule, uModule)
     local iSize = 2
     local oSize = 4
@@ -147,9 +159,10 @@ for i = 1, #biModules do
     tester:add(testFunction, "TestBidirectional".. biNames[i])
 end
 
-LstmTest = torch.TestSuite()
 
-
+--[[
+-- Function for checking correct forward/backward outputs
+ ]]
 function testForwardBachward(module, e_output, e_error)
     local w_const = 0.3
     local history = 4
@@ -164,6 +177,12 @@ function testForwardBachward(module, e_output, e_error)
     tester:assertTensorEq(error, e_error, cond, "Errors do not match.")
 end
 
+
+LstmTest = torch.TestSuite()
+
+--[[
+-- Test correct lstm forward/backward
+ ]]
 function LstmTest.LstmForwardBackward()
     local e_output = torch.Tensor({0.2231, 0.3946, 0.5189, 0.6064})
     local e_error = torch.Tensor({0.3165, 0.2701, 0.1930, 0.1125})
@@ -173,12 +192,19 @@ end
 
 GruTest = torch.TestSuite()
 
+--[[
+-- Test correct gru forward/backward
+ ]]
 function GruTest:GruForwardBackward()
     local e_error = torch.Tensor({0.096448, 0.099792, 0.085345, 0.052972})
     local e_output = torch.Tensor({0.1903, 0.3176,0.4052,0.4665})
     testForwardBachward(nn.Gru, e_output, e_error)
 end
 
+
+--[[
+-- Test that warp_ctc wrapping works as expected
+ ]]
 function testCtc()
     require 'warp_ctc'
     require 'CtcCriterion'
@@ -204,9 +230,75 @@ function testCtc()
 end
 
 
+--[[
+-- Test that cross entropy with masked gradInput works
+ ]]
+function testMaskedCE()
+    local iSize = 3
+    local iCount = 5
+    local ce = nn.CrossEntropyCriterion()
+    local m_ce = nn.MaskedCECriterion()
+    local ce_input = torch.ones(iCount, iSize)
+    local m_ce_input = torch.ones(iCount * 2,iSize)
+    local ce_labels = torch.ones(iCount)
+    local m_ce_labels = torch.ones(iCount * 2)
+    m_ce_labels[{{1, iCount}}]:fill(0)
+    local ce_err = ce:forward(ce_input, ce_labels)
+    local m_ce_err = m_ce:forward(m_ce_input, m_ce_labels)
+    tester:asserteq(ce_err, m_ce_err, "Masked CE error does not fit.")
+    ce:backward(ce_input, ce_labels)
+    m_ce:backward(m_ce_input, m_ce_labels)
+    tester:assertTensorEq(ce.gradInput, m_ce.gradInput[{{iCount + 1, 2*iCount}}], cond, "Masked CE gradient does not fit")
+    tester:assertTensorEq(torch.zeros(iCount, iSize),  m_ce.gradInput[{{1, iCount}}], "Masked CE gradient does not fit")
+end
+
+
+--[[
+-- Test that results is the same when having different length of the time steps
+ ]]
+function testSteps(module)
+    local bHist = 3
+    local aHist = 5
+    local iSize = 1
+    local oSize = 2
+    local aModule = module(iSize, oSize, aHist)
+    local a_x, a_dx = aModule:getParameters()
+    a_dx:zero()
+    local bModule = module(iSize, oSize, bHist)
+    local b_x, b_dx = bModule:getParameters()
+    b_dx:zero()
+    b_x:copy(a_x)
+    local input = torch.zeros(aHist, iSize)
+    input[{{1, bHist}}]:fill(1)
+    local sFunc = function(m) m.sizes = {bHist} end
+    aModule:apply(sFunc)
+    bModule:apply(sFunc)
+    aModule:forward(input)
+    bModule:forward(input[{{1, bHist}}])
+    tester:assertTensorEq(aModule.output[{{1, bHist}}], bModule.output, cond, "Outputs do not fit.")
+    tester:assertTensorEq(aModule.output[{{bHist + 1, aHist}}], torch.zeros(aHist - bHist, oSize))
+    local err_a = aModule.output:clone():fill(1)
+    err_a[{{bHist+1, aHist}}]:fill(0)
+    local err_b = bModule.output:clone():fill(1)
+    aModule:backward(input, err_a)
+    bModule:backward(input[{{1, bHist}}], err_b)
+    tester:assertTensorEq(aModule.gradInput[{{1, bHist}}], bModule.gradInput, cond, "GradInputs are not equal.")
+    tester:assertTensorEq(aModule.gradInput[{{bHist + 1, aHist }}], torch.zeros(aHist - bHist, iSize), "GradInputs are not equal.")
+    tester:assertTensorEq(a_dx, b_dx, cond, "Gradiends are not equal.")
+end
+
+for i=1, #batchModules do
+    local tmp =  function ()
+        testSteps(batchModules[i])
+    end
+    tester:add(tmp,"TestSeqSizes" .. batchNames[i])
+end
+
+
+
 tester:add(LstmTest)
 tester:add(GruTest)
 tester:add(testCtc, "CtcForwardBackward")
-
+tester:add(testMaskedCE, "MaskedCECriterionForwardBackward")
 
 tester:run()
