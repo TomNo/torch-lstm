@@ -2,30 +2,23 @@
     "layers": [
         {
             "size": 120,
-            "name": "fbank",
             "type": "input"
         },
         {
             "size": 512,
-            "name": "output1",
-            "bias": 1.0,
             "type": "bgru",
-            "dropout": 0.0,
-            "batch_normalization": true
+            "dropout": 0.5,
+            "batch_normalization": false
         },
         {
             "size": 512,
-            "name": "output1",
-            "bias": 1.0,
             "type": "bgru",
-            "dropout": 0.0,
-            "batch_normalization": true
+            "dropout": 0.25,
+            "batch_normalization": false
         },
         {
             "size": 1940,
-            "name": "output",
-            "bias": 1.0,
-            "type": "softmax"
+            "type": "linear"
         },
         {
             "size": 1940,
