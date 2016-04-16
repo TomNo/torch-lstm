@@ -155,7 +155,6 @@ function TrainSeqDs:nextParallelSeq()
     self.seqBuffer = {}
     self.labBuffer = {}
     self.sizes = {}
-    local maxSize = 0
     while bufferSize < self.b_size do
         local data, labels
         data, labels = self:getSeq()
@@ -168,9 +167,6 @@ function TrainSeqDs:nextParallelSeq()
             table.insert(self.seqBuffer, {data:clone(), labels:clone()})
             table.insert(self.sizes, data:size(1))
             bufferSize = bufferSize + 1
-            if data:size(1) > maxSize then
-                maxSize = data:size(1)
-            end
         end
     end
 
