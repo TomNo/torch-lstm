@@ -54,7 +54,7 @@ NeuralNetwork.IREC_RELU = "irec_relu"
 NeuralNetwork.B_IREC_RELU = "birec_relu"
 NeuralNetwork.MULTICLASS_CLASSIFICATION = "multiclass_classification"
 NeuralNetwork.CTC = "ctc"
-NeuralNetwork.SOFTMAX = "softmax"
+NeuralNetwork.LINEAR = "linear"
 NeuralNetwork.INPUT = "input"
 NeuralNetwork.LSTM = "lstm"
 NeuralNetwork.BLSTM = "blstm"
@@ -163,7 +163,7 @@ end
 
 function NeuralNetwork:_addCriterion(layer)
     if layer.type == NeuralNetwork.MULTICLASS_CLASSIFICATION then
-        self.criterion = nn.ClassNLLCriterion()
+        self.criterion = nn.CrossEntropyCriterion()
     elseif layer.type == NeuralNetwork.CTC then
         self.criterion = nn.CtcCriterion(self.conf.truncate_seq)
     else
@@ -245,9 +245,8 @@ function NeuralNetwork:_addLayer(layer, p_layer)
         self.model:add(nn.Gru(p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.BGRU then
         self.model:add(nn.Bgru(p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
-    elseif layer.type == NeuralNetwork.SOFTMAX then
+    elseif layer.type == NeuralNetwork.LINEAR then
         self.model:add(nn.Linear(p_layer.size, layer.size))
-        self.model:add(nn.LogSoftMax())
     else
         error("Unknown layer type: " .. layer.type ".")
     end
