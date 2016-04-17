@@ -257,12 +257,6 @@ function NeuralNetwork:_addLayer(layer, p_layer)
 end
 
 
---function NeuralNetwork:_calculateError(predictions, labels)
---    local _, preds = predictions:max(2)
---    return preds:typeAs(labels):ne(labels):sum() - labels:eq(0):sum()
---end
-
-
 function NeuralNetwork:train(dataset, cv_dataset)
     if self.conf.cuda then
         print("Training on GPU.")
@@ -334,9 +328,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
                 self.m_grad_params:zero()
                 local outputs = self.model:forward(inputs, sizes)
                 local err = self.criterion:forward(outputs, labels, sizes, self.model.bSizes)
-                --        err = err/self.inputs:size(1)
                 e_error = e_error + err
---                e_predictions = e_predictions + self:_calculateError(outputs, labels)
                 i_count = i_count + utils.sumTable(sizes)
                 self.model:backward(inputs, self.criterion:backward(outputs, labels))
                 -- apply gradient clipping
@@ -358,8 +350,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
             grad_clips_accs = 0
         end
         e_error = e_error / b_count
-        print(string.format("Error rate on training set is: %.2f%% and loss is: %.4f",
-            e_predictions / i_count * 100, e_error))
+        print(string.format("Loss on training set is: %.4f", e_error))
         if self.conf.learning_rate_decay and epoch % self.conf.decay_every == 0 then
             local nLr =  opt_params.learningRate * self.conf.learning_rate_decay
             local mLr =  self.conf.min_learning_rate
@@ -372,18 +363,8 @@ function NeuralNetwork:train(dataset, cv_dataset)
                 print("Setting learning rate to minimal learning rate: " .. opt_params.learningRate)
             end
 
---            local nMomentum = opt_params.momentum - self.conf.momentum_step
---            if nMomentum < 0 then-- self.conf.max_momentum then
---                print("Not decaying momentum as it is bigger than maximal momentum.")
---                opt_params.momentum = 0 --self.conf.max_momentum
---                print("Setting momentum to maximal momentum: " .. opt_params.momentum)
---            else
---                opt_params.momentum = nMomentum
---                print("Momentum after decay is: " .. opt_params.momentum)
---            end
         end
 
---        print(string.format("Loss on training set is: %.4f", e_error / b_count))
         --autosave model, weights, optimizer
         if self.conf.autosave_optimizer then
             local prefix = ""
@@ -487,9 +468,13 @@ function NeuralNetwork:test(dataset)
         dataset:startBatchIteration(self.conf.parallel_sequences,
                                     self.conf.truncate_seq)
     else
+        local cLabels = true
+        if torch.type(self.criterion) == self.CTC_CRITERION then
+            cLabels = false
+        end
         dataset:startParallelSeq(self.conf.parallel_sequences,
                              self.conf.truncate_seq,
-                             false)
+                             false, cLabels)
     end
 
     while true do
@@ -500,8 +485,7 @@ function NeuralNetwork:test(dataset)
         b_count = b_count + 1
         local output = self.model:forward(inputs, sizes)
         i_count = i_count + utils.sumTable(sizes)
-        c_error = c_error + self.criterion(output, labels)
---        g_error = g_error + self:_calculateError(output, labels)
+        c_error = c_error + self.criterion:forward(output, labels, sizes, self.model.bSizes)
     end
     collectgarbage()
     return c_error / b_count
