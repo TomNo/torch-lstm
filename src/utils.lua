@@ -26,6 +26,9 @@ function utils.getBatchSizes(sizes, history)
                 break
             end
         end
+        if bSize == 0 then
+            return bSizes
+        end
         table.insert(bSizes, bSize)
     end
     return bSizes

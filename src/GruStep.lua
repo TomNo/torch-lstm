@@ -41,7 +41,6 @@ function GruStep:updateOutput(input)
     local aInput = self:currentInput(input)
     self.input = aInput[1]
     self.pOutput = aInput[2]
-
     self.rzActs:forward({self.input[self.rzInt], self.pOutput})
     self.rzSigmoid:forward(self.rzActs.output)
     self.rScale:forward({self.rzSigmoid.output[self.rInt], self.pOutput})
@@ -61,7 +60,9 @@ function GruStep:backward(input, gradOutput, scale)
         module:backward(input, gradOutput, scale)
     end
     if self.nStep then
-        gradOutput:add(self.nStep():getOutputDeltas())
+        local deltas = self.nStep():getOutputDeltas()
+        local rInt = {{1, math.min(deltas:size(1), gradOutput:size(1))}}
+        gradOutput[rInt]:add(deltas[rInt])
     end
     self.gradInput:resizeAs(input)
     backward(self.sum, {self.zScale.output, self.zpScale.output}, gradOutput)

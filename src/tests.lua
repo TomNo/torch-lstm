@@ -57,13 +57,6 @@ end
 
 classes = { nn.LinearScale, nn.LstmStep, nn.Lstm, nn.Blstm, nn.GruStep, nn.Gru, nn.Bgru, nn.RecLayer}
 
-for i = 1, #classes do
-    local testFunction = function()
-        testClass(classes[i])
-    end
-    tester:add(testFunction, "BasicTest" .. classNames[i])
-end
-
 
 function testBatch(module)
     local iSize = 3
@@ -100,13 +93,6 @@ end
 local batchModules = { nn.Bgru , nn.Blstm, nn.Gru, nn.Lstm}
 local batchNames = { "Bgru", "Blstm", "Lstm", "Gru", "Bgru", "Blstm"}
 
-for i = 1, #batchModules do
-    local testFunction = function()
-        testBatch(batchModules[i])
-    end
-    tester:add(testFunction, "TestBatched".. batchNames[i])
-end
-
 
 function testBidirectional(bModule, uModule)
     local iSize = 2
@@ -140,13 +126,6 @@ end
 local biModules = { nn.Bgru, nn.Blstm}
 local uModules = {nn.Gru, nn.Lstm}
 local biNames = { "Gru", "Lstm"}
-
-for i = 1, #biModules do
-    local testFunction = function()
-        testBidirectional(biModules[i], uModules[i])
-    end
-    tester:add(testFunction, "TestBidirectional".. biNames[i])
-end
 
 LstmTest = torch.TestSuite()
 
@@ -202,6 +181,103 @@ function testCtc()
 
     tester:asserteq(err, sum_f, "Ctc error does not fit.")
     tester:assertTensorEq(grads, b:backward(), cond, "Ctc gradients does not fit.")
+end
+
+
+function testDifferentSeqLenghts(module)
+    local iSize = 2
+    local oSize = 4
+    local aHist = 3
+    local bhist = 5
+    local cHist = 10
+    local hSizes = {10, 5, 3}
+    local mods = {}
+    local inputs = {}
+    local outputs = {}
+    local mHist = utils.sumTable(hSizes)
+    local mMod = module(iSize, oSize, mHist)
+    mMod:apply(function (m) m.bSizes = utils.getBatchSizes(hSizes, 12) end)
+    local mInput = torch.ones(mHist, iSize)
+    mMod:forward(mInput)
+    local mX, mDx = mMod:getParameters()
+    mDx:zero()
+    local grads = {}
+    for i=1, #hSizes do
+        local mod = module(iSize, oSize, hSizes[i])
+        mod:apply(function (m) m.bSizes = utils.getBatchSizes({hSizes[i]}, hSizes[i]) end)
+        local x, dx  = mod:getParameters()
+        dx:zero()
+        table.insert(grads, dx)
+        x:copy(mX)
+        local inp = torch.ones(hSizes[i], iSize)
+        mod:forward(inp)
+        table.insert(mods, mod)
+        table.insert(inputs, inp)
+        table.insert(outputs, mod.output)
+    end
+    local eOutput = torch.Tensor(mHist, oSize)
+    local index = 1
+    for t=1, mHist do
+        for i=1, #hSizes do
+            if outputs[i]:size(1) >= t then
+                eOutput[index]:copy(outputs[i][t])
+                index = index + 1
+            end
+        end
+    end
+    tester:assertTensorEq(eOutput, mMod.output, cond, "Outputs are not correct")
+
+    mMod:backward(mInput, mMod.output:clone():fill(1))
+    local errors = {}
+    for i=1, #hSizes do
+        mods[i]:backward(inputs[i], mods[i].output:clone():fill(1))
+        table.insert(errors, mods[i].gradInput)
+    end
+    local eErrors = torch.Tensor(mHist, iSize)
+    index = 1
+    for t=1, mHist do
+        for i=1, #hSizes do
+            if errors[i]:size(1) >= t then
+                eErrors[index]:copy(errors[i][t])
+                index = index + 1
+            end
+        end
+    end
+    tester:assertTensorEq(eErrors, mMod.gradInput, cond, "GradInputs are not correct")
+    local eDx = grads[1]
+    for i=2, #grads do
+        eDx:add(grads[i])
+    end
+    tester:assertTensorEq(eDx,mDx, cond, "Gradiens are not correct")
+end
+
+
+for i = 1, #batchModules do
+    local testFunction = function()
+        testDifferentSeqLenghts(batchModules[i])
+    end
+    tester:add(testFunction, "TestDifferentSeqLenghts".. batchNames[i])
+end
+
+for i = 1, #classes do
+    local testFunction = function()
+        testClass(classes[i])
+    end
+    tester:add(testFunction, "BasicTest" .. classNames[i])
+end
+
+for i = 1, #batchModules do
+    local testFunction = function()
+        testBatch(batchModules[i])
+    end
+    tester:add(testFunction, "TestBatched".. batchNames[i])
+end
+
+for i = 1, #biModules do
+    local testFunction = function()
+        testBidirectional(biModules[i], uModules[i])
+    end
+    tester:add(testFunction, "TestBidirectional".. biNames[i])
 end
 
 

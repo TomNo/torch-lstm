@@ -74,7 +74,14 @@ function Step:currentInput(input)
         self:adaptZTensor()
         pOutput = self.zTensor:expand(input:size(1), self.layerSize)
     end
-    return {input, pOutput}
+    local rInt = {{1, input:size(1)} }
+    if pOutput:size(1) < input:size(1) then
+        local pSize = pOutput:size(1)
+        pOutput:resize(input:size(1), pOutput:size(2))
+        pOutput[{{pSize + 1, input:size(1)}}]:fill(0)
+    end
+
+    return {input, pOutput[rInt]}
 end
 
 

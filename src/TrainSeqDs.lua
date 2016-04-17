@@ -1,5 +1,6 @@
 require 'torch'
 require 'hdf5'
+require 'utils'
 
 torch.setdefaulttensortype('torch.FloatTensor')
 
@@ -176,30 +177,38 @@ function TrainSeqDs:nextParallelSeq()
 
     table.sort(self.seqBuffer, function(a, b) return a[1]:size(1) > b[1]:size(1) end)
     table.sort(self.sizes, function (a, b) return a > b end)
-    self.data:resize(self.b_count, self.seqBuffer[1][1]:size(2))
-    self.data:zero()
-    for i=1, bufferSize do
-        for y=1, self.seqBuffer[i][1]:size(1) do
-            self.data[i + (y - 1) * self.b_size]:copy(self.seqBuffer[i][1][y])
+    local iCount = utils.sumTable(self.sizes)
+    self.data:resize(iCount, self.seqBuffer[1][1]:size(2))
+    local maxT = self.sizes[1]
+
+    local index = 1
+    for t=1, maxT do
+        for i=1, bufferSize do
+            if self.seqBuffer[i][1]:size(1) >= t then
+                self.data[index]:copy(self.seqBuffer[i][1][t])
+                index = index + 1
+            end
         end
     end
 
-
+    -- standart crossentropy
     if self.convertLabels then
-        self.labels:resize(self.b_count)
-        self.labels:zero()
-        for i=1, bufferSize do
-            for y=1, self.seqBuffer[i][2]:size(1) do
-                self.labels[i + (y - 1) * self.b_size] = self.seqBuffer[i][2][y]
+        self.labels:resize(iCount)
+        local index = 1
+        for t=1, maxT do
+            for i=1, bufferSize do
+                if self.seqBuffer[i][2]:size(1) >= t then
+                    self.labels[index] = self.seqBuffer[i][2][t]
+                    index = index + 1
+                end
             end
         end
-    else
+    else -- ctc
         self.labels = {}
         for i=1, bufferSize do
             table.insert(self.labels, self.seqBuffer[i][2])
         end
     end
-
     return self.data, self.labels, self.sizes
 end
 

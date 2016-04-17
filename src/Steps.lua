@@ -84,10 +84,10 @@ function Steps:backward(input, gradOutput)
     lModule.nStep = nil
     for i = #self.bSizes, 1, -1 do
         local interval
-        if self.revert then
-            interval = { { ptr + 1, ptr + self.bSizes[i] } }
+        if not self.revert then
+            interval = { { ptr - self.bSizes[i] + 1, ptr } }
         else
-            interval = {{ptr - self.bSizes[#self.bSizes - i + 1] + 1, ptr}}
+            interval = {{ptr + 1, ptr + self.bSizes[#self.bSizes - i + 1]}}
         end
         local step = self.modules[i]
         step:backward(input[interval], gradOutput[interval])
@@ -95,7 +95,7 @@ function Steps:backward(input, gradOutput)
         if not self.revert then
             ptr = ptr - self.bSizes[i]
         else
-            ptr = ptr + self.bSizes[i]
+            ptr = ptr + self.bSizes[#self.bSizes - i + 1]
         end
     end
     lModule.nStep = nStepBck

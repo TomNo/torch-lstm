@@ -74,19 +74,25 @@ function LstmStep:backward(input, gradOutput, scale)
     local function backward(obj, i, g)
         obj:backward(i, g, scale)
     end
+    local rInt = {1, input:size(1) }
+    self.oActs[1] = rInt
     self.gradInput:resizeAs(input)
     self.gradInput:zero()
     if self.nStep then
-        gradOutput:add(self.nStep():getOutputDeltas())
+        local deltas = self.nStep():getOutputDeltas()
+        local rInt = {{1, math.min(deltas:size(1), gradOutput:size(1))}}
+        gradOutput[rInt]:add(deltas[rInt])
     end
     backward(self.oScale, {self.ocTanh.output, self.oSigmoid.output}, gradOutput)
     backward(self.ocTanh, self.cState.output, self.oScale.gradInput[1])
     if self.nStep then
-        self.ocTanh.gradInput:add(self.nStep():getCellDeltas())
+        local cellDeltas = self.nStep():getCellDeltas()
+        local rInt = {{1, math.min(cellDeltas:size(1), self.ocTanh.gradInput:size(1))}}
+        self.ocTanh.gradInput[rInt]:add(cellDeltas[rInt])
     end
     self.oSigmoid.gradInput = self.gradInput[self.oInt]
     backward(self.oSigmoid, self.oActs.output[self.oInt], self.oScale.gradInput[2])
-    backward(self.oPeeps, {self.oActs.output[self.oInt], self.cState.output}, self.oSigmoid.gradInput)
+    backward(self.oPeeps, {self.oActs.output[self.oInt], self.cState.output[{rInt}]}, self.oSigmoid.gradInput)
     self.ocTanh.gradInput:add(self.oPeeps.gradInput)
     backward(self.cState, {self.iScale.output, self.fScale.output}, self.ocTanh.gradInput)
     backward(self.fScale, {self.pCellOutput, self.ifSigmoid.output[self.fInt]}, self.cState.gradInput[2])
@@ -137,7 +143,16 @@ function LstmStep:currentInput(input)
         pOutput = self.zTensor:expand(input:size(1), self.layerSize)
         pCellStates = pOutput
     end
-    return input, pOutput, pCellStates
+    local rInt = {{1, input:size(1)} }
+    if pOutput:size(1) < input:size(1) then
+        local pSize = pOutput:size(1)
+        pOutput:resize(input:size(1), pOutput:size(2))
+        pCellStates:resize(input:size(1), pCellStates:size(2))
+        pOutput[{{pSize + 1, input:size(1)}}]:fill(0)
+        pCellStates[{{pSize + 1, input:size(1)}}]:fill(0)
+    end
+
+    return input, pOutput[rInt], pCellStates[rInt]
 end
 
 --eof
