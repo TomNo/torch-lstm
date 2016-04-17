@@ -15,9 +15,9 @@ function utils.sumTable(tb)
 end
 
 
-function utils.getBatchSizes(sizes, history)
+function utils.getBatchSizes(sizes)
     local bSizes = {}
-    for i=1, history do
+    for i=1, sizes[1] do
         local bSize = 0
         for y=1, #sizes do
             if sizes[y] >= i then
@@ -25,9 +25,6 @@ function utils.getBatchSizes(sizes, history)
             else
                 break
             end
-        end
-        if bSize == 0 then
-            return bSizes
         end
         table.insert(bSizes, bSize)
     end

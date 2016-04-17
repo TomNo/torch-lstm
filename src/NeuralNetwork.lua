@@ -112,7 +112,7 @@ function NeuralNetwork:init()
     else
         self.model = nn.Sequential()
         self.model.forward = function(mod, input, sizes)
-            local bSizes = utils.getBatchSizes(sizes, self.conf.truncate_seq)
+            local bSizes = utils.getBatchSizes(sizes)
             mod:apply(function(m) m.bSizes = bSizes end)
             return mod:updateOutput(input)
         end
