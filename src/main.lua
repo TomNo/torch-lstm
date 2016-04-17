@@ -18,6 +18,7 @@ cmd:option('--config_file', '../timit_config.cfg', 'training configuration file'
 cmd:option('--log_file', '', 'log file')
 cmd:option('--output_model', 'final.model', 'name of the resulting serialized model')
 cmd:option('--input_model', '', 'name of the resulting serialized model')
+cmd:option('--log_softmax', true, 'apply LogSoftmax during forward pass')
 cmd:text()
 params = cmd:parse(arg)
 
@@ -41,6 +42,9 @@ net:init()
 if params.forward_pass then
     if params.forward_output == '' then
         error("Missing forward output file.")
+    end
+    if params.log_softmax then
+        net:addLogSoftmax()
     end
     print("Computing forward pass for all sequences.")
     local testDs = TestSeqDs(net.conf.test_file)

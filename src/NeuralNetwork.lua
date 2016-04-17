@@ -425,31 +425,10 @@ function NeuralNetwork:forward(data, overlap)
         "Dataset input does not match first layer size.")
     self.model:evaluate()
 
---    data = data:cuda()
-----    local out = self.model:forward(data)
-----    return out:float()
---    --
---    local out = torch.Tensor(data:size(1), self.output_size)
---    out[{{1,17}}]:copy(self.model:forward(data[{{1, 32}}])[{{1,17}}])
---
---    for i=18,data:size(1) - 16, 2 do
---        local jaj = self.model:forward(data[{{i-15, i + 2 + 15-1}}])
---        out[{{i, i+2-1}}]:copy(jaj[{{16, 17}}])
---    end
---
---
---
---    out[{{data:size(1)-16+1,data:size(1)}}]:copy(self.model:forward(data[{{data:size(1)-32+1,data:size(1)}}])[{{17,32}}])
---
---    return out
-    -- default no overlap
     overlap = overlap or 0
 
-    -- in case of sequence that is shorter than history
-    if data:size(1) < self.conf.truncate_seq then
-        local padding = torch.zeros(self.conf.truncate_seq - data:size(1), data:size(2))
-        local input = data:cat(padding, 1)
-        return self.model:forward(input:cuda(), {data:size(1)})[{{1, data:size(1)}}]:float()
+    if data:size(1) <= self.conf.truncate_seq then
+        return self.model:forward(data:cuda(), {data:size(1)}):float()
     end
 
     local step = self.conf.truncate_seq - 2 * overlap
@@ -468,18 +447,9 @@ function NeuralNetwork:forward(data, overlap)
         end
     end
 
---    for y=1, self.conf.truncate_seq do
---        input[(y - 1) * iSeqs + iSeqs + 1] = data[data:size(1) - self.conf.truncate_seq + y]
---    end
-
     input = input:cuda()
 
     local output = torch.Tensor(data:size(1), self.output_size)
---    output[{{1, step + overlap}}] = modelOutput[{{1, step+overlap}}]
---    output[{{data:size(1) - self.conf.truncate_seq + 1, data:size(1)}}] = modelOutput[{{data:size(1) - self.conf.truncate_seq + 1, data:size(1)}}]
---    for i=2, modelOutput:size(1) do
---        output
---    end
     --calculate first the end of the sequence
     local eInt = {{data:size(1) - self.conf.truncate_seq + 1, data:size(1)}}
     output[eInt]:copy(self.model:forward(data[eInt]:cuda(), {data[eInt]:size(1)}))
@@ -495,40 +465,6 @@ function NeuralNetwork:forward(data, overlap)
     output[{{overlap + 1, overlap + linOutput:size(1)}}]:copy(linOutput)
 
     return output
-
---    local oCount = data:size(1)
---    if data:size(1) < self.conf.truncate_seq then
---        local padding = torch.zeros(self.conf.truncate_seq - oCount, data:size(2))
---        data = data:cat(padding, 1)
---    end
---
---    local bCount = math.floor(data:size(1)/self.conf.truncate_seq)
---    local overhang = data:size(1) % self.conf.truncate_seq
---    local iCount = self.conf.truncate_seq * bCount
---    local outputs = torch.Tensor(oCount, self.output_size)
---    local tmp = data[{{1, iCount}}]:clone()
---    local inputs = tmp:view(bCount, self.conf.truncate_seq, data:size(2)):transpose(1,2):reshape(iCount, data:size(2))
---    if self.conf.cuda then
---        inputs = inputs:cuda()
---    end
---    local tOutput = self.model:forward(inputs):view(self.conf.truncate_seq, bCount, self.output_size)
---    tOutput = tOutput:transpose(1,2):reshape(iCount, self.output_size)
---    -- dealing with sequences that are shorter than history
---    if data:size(1) ~= oCount then
---        outputs:copy(tOutput[{{1,oCount}}])
---    else
---        outputs[{{1, iCount}}]:copy(tOutput)
---    end
---
---    if overhang > 0 then
---        local bIndex = data:size(1) - self.conf.truncate_seq + 1
---        inputs:resize(self.conf.truncate_seq, data:size(2))
---        inputs:copy(data[{{bIndex, data:size(1)}}])
---        local tOutput = self.model:forward(inputs)
---        outputs[{{bIndex, data:size(1)}}]:copy(tOutput)
---    end
---    collectgarbage()
---    return outputs
 end
 
 
@@ -590,5 +526,14 @@ function NeuralNetwork:loadModel(filename)
     self.m_params, self.m_grad_params = self.model:getParameters()
 end
 
+
+function NeuralNetwork:addLogSoftmax()
+    print("Adding nn.LogSoftMax module to the model.")
+    local sMax = nn.LogSoftMax()
+    if self.conf.cuda then
+        sMax = sMax:cuda()
+    end
+    self.model:add(sMax)
+end
 
 --eof
