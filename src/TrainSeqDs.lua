@@ -146,7 +146,7 @@ function TrainSeqDs:startParallelSeq(b_size, h_size, shuffle, convertLabels)
     self.h_size = h_size
     self.b_size = b_size
     self.b_count = h_size * b_size
-    self.convertLabels = convertLabels or true
+    self.convertLabels = convertLabels
     self.nextBatch = self.nextParallelSeq
 end
 
@@ -204,27 +204,16 @@ function TrainSeqDs:nextParallelSeq()
             end
         end
     else -- ctc
-        self.labels = {}
+        local labels = {}
         for i=1, bufferSize do
-            table.insert(self.labels, self.seqBuffer[i][2])
+            table.insert(labels, self.seqBuffer[i][2]:float():totable())
         end
+        return self.data, labels, self.sizes
     end
     return self.data, self.labels, self.sizes
 end
 
 
-
---function TrainSeqDs:_getFrac()
---    if self.fracIndex > #self.fracIntervals then
---        return nil
---    end
---    local index  = self.fracIndexes[self.fracIndex]
---    local data, labels = self:_getData(self.fracIntervals[index])
---    self.fracIndex = self.fracIndex + 1
---    return data, labels
---end
---
---
 function TrainSeqDs:_prepareSeqData(restDataIndex)
     local seq, labels
     -- ami contains short sequences sometime....
@@ -320,163 +309,5 @@ function TrainSeqDs:startBatchIteration(b_size, h_size, shuffle, rShift,
     self.rShilt = rShift or false
     self.nextBatch = self.nextClassicBatch
 end
---
---function TrainSeqDs:startFractionIteration(shuffle)
---    self.fracIndex = 1
---    self:_genFracIntervals()
---    if shuffle then
---        self.fracIndexes = torch.randperm(#self.fracIntervals)
---    else
---        self.fracIndexes = torch.range(1, #self.fracIntervals)
---    end
---end
---
---function TrainSeqDs:startBatchIterationFractions(b_size, h_size, shuffle, rShift,
---                                                 overlap)
---    self.a_seq_index = 1
---    self.h_size = h_size
---    self.b_size = b_size
---    self.b_count = h_size * b_size
---    self.overlap = overlap or false
---    self.rShilt = rShift or false
---    self:startFractionIteration(shuffle)
---end
---
---function TrainSeqDs:startBatchIterationParallel(b_size, h_size, shuffle, rShift,
---                                        overlap)
---    self.a_seq_index = 1
---    self:startSeqIteration(shuffle)
---    self.h_size = h_size
---    self.b_size = b_size
---    self.b_count = h_size * b_size
-----    self:_prepareSeqData()
---    self.overlap = overlap or false
---    self.rShilt = rShift or false
---    self.seqBuffer = {}
---    for i=1, b_size do
---        table.insert(self.seqBuffer, {})
---    end
---end
---
---function TrainSeqDs:_refillSeqBuffer()
---    for i=1, self.b_size do
---        local item = self.seqBuffer[i]
---        if not item.seq then
---            local seq, labels
---            repeat
---                seq, labels = self:getSeq()
---                if not seq then
---                    return false
---                end
---                -- ignore sequences that are shorter than history
---            until seq:size(1) >= self.h_size
---            --duplicate data that does not form minibatch
---            local m_count = math.floor(seq:size(1) / self.h_size)
---            local overhang = seq:size(1) % self.h_size
---            if overhang > 0 then
---                seq:resize(self.h_size * (m_count + 1), seq:size(2))
---                labels:resize(self.h_size * (m_count + 1))
---                local e = self.h_size * m_count + overhang
---                local s = e - self.h_size + 1
---                local from = {{s, e }}
---                local to = {{self.h_size * m_count + 1, seq:size(1) }}
---                seq[to]:copy(seq[from]:clone())
---                labels[to]:copy(labels[from]:clone())
---                m_count = m_count + 1
---            end
---            item.seq = seq:clone()
---            item.labels = labels:clone()
---        end
---    end
---    return true
---end
---
---
---function TrainSeqDs:nextParallelBatch()
---    -- refill only if buffer is empty
---    local emptySeqs = 0
---    for i=1, self.b_size do
---        if not self.seqBuffer[i].seq then
---            emptySeqs = emptySeqs + 1
---        end
---    end
---
---    if emptySeqs == self.b_size then
---        self:_refillSeqBuffer()
---    end
---
---    -- checks that there are still some sequeces to process
---    local seqCount = 0
---    for i=1, self.b_size do
---        local item = self.seqBuffer[i]
---        if item.seq then
---            seqCount = seqCount + 1
---        end
---    end
---
---    if seqCount == 0 then
---        return nil
---    end
---    self.data:resize(seqCount*self.h_size, self.cols)
---    self.labels:resize(seqCount* self.h_size)
---    local dIndex = 0
---    for y=1, self.h_size do
---        for i=1, self.b_size do
---            local item = self.seqBuffer[i]
---            if item.seq then
---                dIndex = dIndex + 1
---                self.data[dIndex] = item.seq[1]
---                self.labels[dIndex] = item.labels[1]
---                if item.seq:size(1) == 1 then
---                    item.seq = nil
---                    item.labels = nil
---                else
---                    item.seq = item.seq[{{2, item.seq:size(1)}}]
---                    item.labels = item.labels[{{2, item.labels:size(1)}}]
---                end
---            end
---        end
---    end
---
-----    local int = { { self.a_seq_index, self.a_seq_index + self.b_count - 1 } }
-----    local tmp_data = self.seq_data[int]
-----    local tmp_labels = self.seq_labels[int]
-----    self.data:copy(tmp_data:view(self.b_size, self.h_size, self.cols):transpose(1, 2):reshape(self.b_count, self.cols))
-----    self.labels:copy(tmp_labels:view(self.b_size, self.h_size):t():reshape(self.b_count))
-----
-----    self.a_seq_index = self.a_seq_index + self.b_count
---    return self.data, self.labels
---end
---
---function TrainSeqDs:nextFracBatch()
---    local aBatchSize = 0
---    local bData = {}
---    local bLabels = {}
---    for i=1, self.b_size do
---        local data, labels = self:_getFrac()
---        if not data then
---            break
---        end
---        aBatchSize = i
---        table.insert(bData, data)
---        table.insert(bLabels, labels)
---    end
---    if aBatchSize == 0 then
---        return nil
---    end
---
---    self.data:resize(aBatchSize * self.h_size, self.cols)
---    self.labels:resize(aBatchSize * self.h_size)
---    local index = 1
---    for i=1, self.h_size do
---        for y=1, aBatchSize do
---            self.data[index] = bData[y][i]
---            self.labels[index] = bLabels[y][i]
---            index = index + 1
---        end
---    end
---    return self.data, self.labels
---end
---
 
 --eof

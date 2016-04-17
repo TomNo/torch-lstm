@@ -168,19 +168,24 @@ function testCtc()
 
 
     local acts = torch.Tensor({{1,2,3,4,5},{1,2,3,4,5},{-5,-4,-3,-2,-1},
-                            {6,7,8,9,10},{6,7,8,9,10},{-10,-9,-8,-7,-6},
-                            {-5,4,3,-1,11},{11,12,13,14,15},{-15,-14,-13,-12,-11}}):cuda()
-    local labels = {{1}, {2,4}, {2,3}}
-    local sizes = {3,3,3}
+                            {6,7,8,9,10},{6,7,8,9,10},{0,0,0,0,0},
+                            {-5,4,3,-1,11},{11,12,13,14,15},{0,0,0,0,0}}):cuda()
+    local labels = {{1}, {2,4}, {2}}
+    local sizes = {3,3,1}
+    local bSizes = {3,2,2}
     local grads = acts:clone():fill(0)
     local f = gpu_ctc(acts, grads, labels, sizes)
     local sum_f = utils.sumTable(f)
-
-    local cLabels = torch.Tensor({1,2,2,1,2,3,1,4,3})
-    local err = b:forward(acts, cLabels)
-
+    local bActs = torch.Tensor({{1,2,3,4,5},{1,2,3,4,5},{-5,-4,-3,-2,-1},
+                            {6,7,8,9,10},{6,7,8,9,10},
+                            {-5,4,3,-1,11},{11,12,13,14,15}}):cuda()
+    local err = b:forward(bActs, labels, sizes, bSizes)
     tester:asserteq(err, sum_f, "Ctc error does not fit.")
-    tester:assertTensorEq(grads, b:backward(), cond, "Ctc gradients does not fit.")
+    b:backward(bActs, labels)
+    -- sum should be the same
+    local gSum = grads:sum(1)
+    local gradInputSum = b.gradInput:sum(1)
+    tester:assertTensorEq(gSum, gradInputSum, cond, "Ctc gradients do not fit.")
 end
 
 

@@ -61,6 +61,7 @@ NeuralNetwork.BLSTM = "blstm"
 NeuralNetwork.GRU = "gru"
 NeuralNetwork.BGRU = "bgru"
 NeuralNetwork.DEFAULT_HISTORY = 5
+NeuralNetwork.CTC_CRITERION = "nn.CtcCriterion"
 
 
 function NeuralNetwork:__init(params, log)
@@ -256,10 +257,10 @@ function NeuralNetwork:_addLayer(layer, p_layer)
 end
 
 
-function NeuralNetwork:_calculateError(predictions, labels)
-    local _, preds = predictions:max(2)
-    return preds:typeAs(labels):ne(labels):sum() - labels:eq(0):sum()
-end
+--function NeuralNetwork:_calculateError(predictions, labels)
+--    local _, preds = predictions:max(2)
+--    return preds:typeAs(labels):ne(labels):sum() - labels:eq(0):sum()
+--end
 
 
 function NeuralNetwork:train(dataset, cv_dataset)
@@ -302,7 +303,14 @@ function NeuralNetwork:train(dataset, cv_dataset)
                 self.conf.random_shift,
                 self.conf.overlap)
         else
-            dataset:startParallelSeq(self.conf.parallel_sequences, self.conf.truncate_seq, self.conf.shuffle_sequences)
+            local cLabels = true
+            if torch.type(self.criterion) == self.CTC_CRITERION then
+                cLabels = false
+            end
+            dataset:startParallelSeq(self.conf.parallel_sequences,
+                                     self.conf.truncate_seq,
+                                     self.conf.shuffle_sequences,
+                                     cLabels)
         end
 
         local e_error = 0
@@ -325,10 +333,10 @@ function NeuralNetwork:train(dataset, cv_dataset)
                 -- reset gradients
                 self.m_grad_params:zero()
                 local outputs = self.model:forward(inputs, sizes)
-                local err = self.criterion:forward(outputs, labels)
+                local err = self.criterion:forward(outputs, labels, sizes, self.model.bSizes)
                 --        err = err/self.inputs:size(1)
                 e_error = e_error + err
-                e_predictions = e_predictions + self:_calculateError(outputs, labels)
+--                e_predictions = e_predictions + self:_calculateError(outputs, labels)
                 i_count = i_count + utils.sumTable(sizes)
                 self.model:backward(inputs, self.criterion:backward(outputs, labels))
                 -- apply gradient clipping
@@ -493,10 +501,10 @@ function NeuralNetwork:test(dataset)
         local output = self.model:forward(inputs, sizes)
         i_count = i_count + utils.sumTable(sizes)
         c_error = c_error + self.criterion(output, labels)
-        g_error = g_error + self:_calculateError(output, labels)
+--        g_error = g_error + self:_calculateError(output, labels)
     end
     collectgarbage()
-    return (g_error / i_count) * 100, c_error / b_count
+    return c_error / b_count
 end
 
 
