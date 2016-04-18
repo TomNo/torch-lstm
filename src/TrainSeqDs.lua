@@ -12,6 +12,7 @@ local TrainSeqDs = torch.class('TrainSeqDs')
 
 
 local SEQ_SIZES = "seq_sizes"
+local LAB_SIZES ="lab_sizes"
 local LABELS = "labels"
 local FEATURES = "features"
 local ROWS = "rows"
@@ -48,42 +49,36 @@ function TrainSeqDs:_readSeqSizes()
     local status, seq_sizes = pcall(self.f.read, self.f, SEQ_SIZES)
     if status then
         self.seq_sizes = seq_sizes:all()[1]
+        local status, lab_sizes = pcall(self.f.read, self.f, LAB_SIZES)
+        -- if label sizes are not avalaible assume that lables has the same
+        -- length as the input sequences
+        if status then
+            self.lab_sizes = lab_sizes:all()[1]
+        else
+            self.lab_sizes = self.seq_sizes
+        end
+        assert(self.lab_sizes:size(1) == self.seq_sizes:size(1),
+               "There is not corresponding amount of sequences and labels.")
     else
         error("Could not read sequence sizes.")
     end
 end
 
 function TrainSeqDs:_genIntervals()
-    self.intervals = {}
+    self.seqIntervals = {}
     local acc = 0
     for i = 1, self.seq_sizes:size(1) do
         acc = acc + self.seq_sizes[i]
-        table.insert(self.intervals, acc)
+        table.insert(self.seqIntervals, acc)
+    end
+
+    self.labIntervals = {}
+   for i = 1, self.lab_sizes:size(1) do
+        acc = acc + self.lab_sizes[i]
+        table.insert(self.labIntervals, acc)
     end
 end
 
-function TrainSeqDs:_genFracIntervals()
-    self.fracIntervals = {}
-    local acc = 1
-    for i = 1, #self.intervals do
-        local interval = self.intervals[i]
-        local shift = self.h_size
-        if self.overlap then
-            shift = math.floor(self.h_size / 2)
-        end
-        -- ignoring shorter sequences than is history
-        if interval - acc + 1 >= self.h_size then
-            for y=acc, interval - self.h_size, shift do
-                local e = y + self.h_size - 1
-                table.insert(self.fracIntervals, {y, e})
-            end
-            -- insert stuff that did not make minibatch regularly
-            table.insert(self.fracIntervals, {interval - self.h_size + 1,
-                                              interval})
-        end
-        acc = 1 + interval -- start of the future frame
-    end
-end
 
 function TrainSeqDs:_readSize()
     local s_rows, rows = pcall(self.f.read, self.f, ROWS)
@@ -98,15 +93,16 @@ function TrainSeqDs:_readSize()
     end
 end
 
-function TrainSeqDs:_getData(interval)
+function TrainSeqDs:_getData(dataInt, labInt)
+    labInt = labInt or dataInt
     local data = nil
     local labels = nil
     if self.load_all then
-        data = self.a_features[{ interval, { 1, self.cols } }]:clone()
-        labels = self.a_labels[{ interval }]:clone()
+        data = self.a_features[{ dataInt, { 1, self.cols } }]:clone()
+        labels = self.a_labels[{ dataInt }]:clone()
     else
-        data = self.f_features:partial(interval, { 1, self.cols })
-        labels = self.f_labels:partial(interval)
+        data = self.f_features:partial(labInt, { 1, self.cols })
+        labels = self.f_labels:partial(labInt)
     end
     labels:add(1) -- lua indexes from 1
     return data, labels
@@ -115,24 +111,27 @@ end
 function TrainSeqDs:startSeqIteration(shuffle)
     self.seq_index = 1
     if shuffle then
-        self.seq_indexes = torch.randperm(#self.intervals)
+        self.seq_indexes = torch.randperm(#self.seqIntervals)
     else
-        self.seq_indexes = torch.range(1, #self.intervals)
+        self.seq_indexes = torch.range(1, #self.seqIntervals)
     end
 end
 
 function TrainSeqDs:getSeq()
-    if self.seq_index > #self.intervals then
+    if self.seq_index > #self.seqIntervals then
         return nil
     end
     local r_index = self.seq_indexes[self.seq_index]
-    local start = 1
+    local startSeq = 1
+    local startLab = 1
     if r_index ~= 1 then
-        start = self.intervals[r_index - 1] + 1
+        startSeq = self.seqIntervals[r_index - 1] + 1
+        startLab = self.labIntervals[r_index - 1] + 1
     end
-    local interval = { start, self.intervals[r_index] }
+    local seqInterval = { startSeq, self.seqIntervals[r_index] }
+    local labInterval = { startSeq, self.labIntervals[r_index] }
     self.seq_index = self.seq_index + 1
-    local data, labels = self:_getData(interval)
+    local data, labels = self:_getData(seqInterval, labInterval)
     self.data:resize(data:size(1), data:size(2))
     self.labels:resize(labels:size(1))
     self.data:copy(data)
