@@ -24,7 +24,7 @@
             "size": 10,
             "name": "output",
             "bias": 1.0,
-            "type": "softmax"
+            "type": "linear"
         },
         {
             "size": 10,

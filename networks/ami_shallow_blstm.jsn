@@ -32,7 +32,7 @@
             "size": 4016,
             "name": "output",
             "bias": 1.0,
-            "type": "softmax"
+            "type": "linear"
         },
         {
             "size": 4016,
