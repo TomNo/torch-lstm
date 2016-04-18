@@ -2,33 +2,24 @@
     "layers": [
         {
             "size": 1024,
-            "name": "fbank",
             "type": "input"
         },
         {
             "size": 512,
-            "name": "feedforward_tanh",
-            "bias": 1.0,
             "type": "blstm",
             "batch_normaliation": true
         },
         {
             "size": 512,
-            "name": "1feedforward_tanh",
-            "bias": 1.0,
             "type": "blstm",
             "batch_normaliation": true
-
         },
         {
             "size": 10,
-            "name": "output",
-            "bias": 1.0,
             "type": "linear"
         },
         {
             "size": 10,
-            "name": "postoutput",
             "type": "multiclass_classification"
         }
     ]

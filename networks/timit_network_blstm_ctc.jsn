@@ -2,21 +2,16 @@
     "layers": [
         {
             "size": 120,
-            "name": "fbank",
             "type": "input"
         },
         {
             "size": 512,
-            "name": "output1",
-            "bias": 1.0,
             "type": "blstm",
             "dropout": 0.0,
             "batch_normalization": false
         },
         {
             "size": 512,
-            "name": "output1",
-            "bias": 1.0,
             "type": "blstm",
             "dropout": 0.0,
             "batch_normalization": false
@@ -27,7 +22,6 @@
         },
         {
             "size": 1941,
-            "name": "postoutput",
             "type": "ctc"
         }
     ]

@@ -22,7 +22,6 @@
         },
         {
             "size": 1940,
-            "name": "postoutput",
             "type": "multiclass_classification"
         }
     ]

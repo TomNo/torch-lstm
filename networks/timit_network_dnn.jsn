@@ -2,50 +2,38 @@
     "layers": [
         {
             "size": 120,
-            "name": "fbank",
             "type": "input"
         },
         {
             "size": 1024,
-            "name": "output1",
-            "bias": 1.0,
             "type": "feedforward_relu",
             "dropout": 0.0,
             "batch_normalization": true
         },
         {
             "size": 1024,
-            "name": "output1",
-            "bias": 1.0,
             "type": "feedforward_relu",
             "dropout": 0.0,
             "batch_normalization": true
         },
         {
             "size": 1024,
-            "name": "output1",
-            "bias": 1.0,
             "type": "feedforward_relu",
             "dropout": 0.0,
             "batch_normalization": true
         },
         {
             "size": 1024,
-            "name": "output1",
-            "bias": 1.0,
             "type": "feedforward_relu",
             "dropout": 0.0,
             "batch_normalization": true
         },
         {
             "size": 1940,
-            "name": "output",
-            "bias": 1.0,
             "type": "linear"
         },
         {
             "size": 1940,
-            "name": "postoutput",
             "type": "multiclass_classification"
         }
     ]

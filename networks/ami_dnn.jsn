@@ -2,46 +2,34 @@
     "layers": [
         {
             "size": 120,
-            "name": "fbank",
             "type": "input"
         },
         {
             "size": 1024,
-            "name": "blstm1",
-            "bias": 1.0,
             "type": "feedforward_relu",
             "batch_normalization": true
         },
         {
             "size": 1024,
-            "name": "blstm5",
-            "bias": 1.0,
             "type": "feedforward_relu",
             "batch_normalization": true
         },
         {
             "size": 1024,
-            "name": "blstm5",
-            "bias": 1.0,
             "type": "feedforward_relu",
             "batch_normalization": true
         },
         {
             "size": 1024,
-            "name": "blstm5",
-            "bias": 1.0,
             "type": "feedforward_relu",
             "batch_normalization": true
         },
         {
             "size": 4016,
-            "name": "output",
-            "bias": 1.0,
             "type": "linear"
         },
         {
             "size": 4016,
-            "name": "postoutput",
             "type": "multiclass_classification"
         }
     ]

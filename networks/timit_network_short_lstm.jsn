@@ -2,25 +2,19 @@
     "layers": [
         {
             "size": 120,
-            "name": "fbank",
             "type": "input"
         },
         {
             "size": 10,
-            "name": "output",
-            "bias": 1.0,
             "type": "lstm",
             "batch_normalization": false
         },
         {
             "size": 1940,
-            "name": "output",
-            "bias": 1.0,
             "type": "linear"
         },
         {
             "size": 1940,
-            "name": "postoutput",
             "type": "multiclass_classification"
         }
     ]
