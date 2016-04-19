@@ -18,8 +18,20 @@ function LstmStep:__init(layerSize)
     self.inputSize = 4 * layerSize
     self.layerSize = layerSize
     self.cellDeltas = torch.Tensor()
+    -- various intervals
+    self.iInt = {{}, {1, self.layerSize} }
+    self.fInt = {{}, {self.layerSize + 1, 2 * self.layerSize}}
+    self.cInt = {{}, {2*self.layerSize + 1, 3*self.layerSize} }
+    self.oInt = {{}, {3*self.layerSize + 1, 4* self.layerSize} }
+    self.ifInt = {{}, {1, 2*self.layerSize} }
     -- all output activations
     self.oActs = nn.AddLinear(layerSize, 4 * layerSize)
+    -- overide init in order to initialize forget gate biases to one
+    self.oActs.reset = function(mod, std)
+        nn.Linear.reset(mod, std)
+        mod.bias[{{self.layerSize + 1, 2 * self.layerSize}}]:fill(1)
+    end
+    self.oActs:reset()
     self.iPeeps = nn.LinearScale(layerSize)
     self.fPeeps = nn.LinearScale(layerSize)
     self.oPeeps = nn.LinearScale(layerSize)
@@ -31,12 +43,6 @@ function LstmStep:__init(layerSize)
     self.oSigmoid = nn.Sigmoid()
     self.ocTanh = nn.Tanh()
     self.oScale = nn.CMulTable()
-
-    self.iInt = {{}, {1, self.layerSize} }
-    self.fInt = {{}, {self.layerSize + 1, 2 * self.layerSize}}
-    self.cInt = {{}, {2*self.layerSize + 1, 3*self.layerSize} }
-    self.oInt = {{}, {3*self.layerSize + 1, 4* self.layerSize} }
-    self.ifInt = {{}, {1, 2*self.layerSize} }
 
     local mNames = {"oActs", "iPeeps", "fPeeps", "oPeeps", "ifSigmoid",
         "icTanh", "iScale", "fScale", "cState", "oSigmoid", "ocTanh", "oScale"}
