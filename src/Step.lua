@@ -31,8 +31,9 @@ end
 function Step:backward(input, gradOutput, scale)
    scale = scale or 1
    if self.nStep then
-        local nGradOutput = self.nStep():getOutputDeltas()
-        gradOutput:add(nGradOutput)
+        local deltas = self.nStep():getOutputDeltas()
+        local rInt = {{1, math.min(deltas:size(1), gradOutput:size(1))}}
+        gradOutput[rInt]:add(deltas[rInt])
    end
    local currentGradOutput = gradOutput
    local currentModule = self.modules[#self.modules]
