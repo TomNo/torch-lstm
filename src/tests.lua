@@ -142,6 +142,7 @@ function testForwardBachward(module, e_output, e_error)
     local error = obj:backward(input, torch.ones(history, 1)):squeeze()
     tester:assertTensorEq(output:squeeze(), e_output, cond, "Outputs do not match.")
     tester:assertTensorEq(error, e_error, cond, "Errors do not match.")
+
 end
 
 function LstmTest.LstmForwardBackward()
@@ -157,6 +158,26 @@ function GruTest:GruForwardBackward()
     local e_error = torch.Tensor({0.096448, 0.099792, 0.085345, 0.052972})
     local e_output = torch.Tensor({0.1903, 0.3176,0.4052,0.4665})
     testForwardBachward(nn.Gru, e_output, e_error)
+end
+
+
+RnnTest = torch.TestSuite()
+
+function RnnTest:RnnForwardBackward()
+    local e_errors = {torch.Tensor({0.07335, 0.068707, 0.068108, 0.063992}),
+                      torch.Tensor({0.2586, 0.2114, 0.1979, 0.1682}),
+                      torch.Tensor({0.4251, 0.4170, 0.3900, 0.3000})}
+    local e_outputs = {torch.Tensor({0.6457, 0.6886, 0.6914, 0.6916}),
+                       torch.Tensor({0.5370, 0.6417, 0.6598, 0.6629}),
+                       torch.Tensor({0.6, 0.78, 0.8340, 0.8502})}
+
+    local aTypes = {nn.Sigmoid, nn.Tanh, nn.ReLU}
+    for i=1, #aTypes do
+        local func = function(iSize, oSize, history)
+            return nn.RecLayer(aTypes[i], iSize, oSize, history)
+        end
+        testForwardBachward(func, e_outputs[i], e_errors[i])
+    end
 end
 
 function testCtc()
@@ -286,6 +307,7 @@ for i = 1, #biModules do
 end
 
 
+tester:add(RnnTest)
 tester:add(LstmTest)
 tester:add(GruTest)
 tester:add(testCtc, "CtcForwardBackward")
