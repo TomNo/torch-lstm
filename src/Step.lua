@@ -43,7 +43,8 @@ function Step:backward(input, gradOutput, scale)
       currentModule.gradInput = currentGradOutput
       currentModule = previousModule
    end
-   currentGradOutput = currentModule:backward(self:currentInput(input), currentGradOutput, scale)
+   currentGradOutput = currentModule:backward(self:currentInput(input),
+       currentGradOutput[{{1, input:size(1)}}], scale)
    self.gradInput = currentGradOutput
    return currentGradOutput
 end
@@ -79,7 +80,7 @@ function Step:currentInput(input)
     if pOutput:size(1) < input:size(1) then
         local pSize = pOutput:size(1)
         pOutput:resize(input:size(1), pOutput:size(2))
-        pOutput[{{pSize + 1, input:size(1)}}]:fill(0)
+        pOutput[{{pSize + 1, input:size(1)}}]:zero()
     end
 
     return {input, pOutput[rInt]}

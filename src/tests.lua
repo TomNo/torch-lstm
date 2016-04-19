@@ -57,6 +57,9 @@ end
 
 classes = { nn.LinearScale, nn.LstmStep, nn.Lstm, nn.Blstm, nn.GruStep, nn.Gru, nn.Bgru, nn.RecLayer}
 
+rnn = function(a, b, c) return nn.RecLayer(nn.Tanh, a, b, c) end
+brnn = function(a, b, c) return nn.BiRecLayer(nn.Tanh, a, b, c) end
+
 
 function testBatch(module)
     local iSize = 3
@@ -90,8 +93,8 @@ function testBatch(module)
     tester:assertTensorEq(a_errs, e_errs, cond, "Backward pass does not match.")
 end
 
-local batchModules = { nn.Bgru , nn.Blstm, nn.Gru, nn.Lstm}
-local batchNames = { "Bgru", "Blstm", "Lstm", "Gru", "Bgru", "Blstm"}
+local batchModules = { nn.Bgru , nn.Blstm, nn.Gru, nn.Lstm, rnn, brnn}
+local batchNames = { "Bgru", "Blstm", "Lstm", "Gru", "Rnn", "Brnn"}
 
 
 function testBidirectional(bModule, uModule)
@@ -122,10 +125,9 @@ function testBidirectional(bModule, uModule)
 
 end
 
-
-local biModules = { nn.Bgru, nn.Blstm}
-local uModules = {nn.Gru, nn.Lstm}
-local biNames = { "Gru", "Lstm"}
+local biModules = { nn.Bgru, nn.Blstm, brnn}
+local uModules = {nn.Gru, nn.Lstm, rnn}
+local biNames = { "Gru", "Lstm", "Rnn"}
 
 LstmTest = torch.TestSuite()
 

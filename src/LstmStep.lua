@@ -148,8 +148,8 @@ function LstmStep:currentInput(input)
         local pSize = pOutput:size(1)
         pOutput:resize(input:size(1), pOutput:size(2))
         pCellStates:resize(input:size(1), pCellStates:size(2))
-        pOutput[{{pSize + 1, input:size(1)}}]:fill(0)
-        pCellStates[{{pSize + 1, input:size(1)}}]:fill(0)
+        pOutput[{{pSize + 1, input:size(1)}}]:zero()
+        pCellStates[{{pSize + 1, input:size(1)}}]:zero()
     end
 
     return input, pOutput[rInt], pCellStates[rInt]
