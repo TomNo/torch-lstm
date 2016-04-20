@@ -77,8 +77,10 @@ function NeuralNetwork:__init(params, log)
     self.conf = {} -- configuration regarding training
     self.m_params = nil -- model params
     self.m_grad_params = nil -- model gradients
-    self.log = log
-    self.log:addTime('NeuralNetwork', '%F %T')
+    if log then
+        self.log = log
+        self.log:addTime('NeuralNetwork', '%F %T')
+    end
     self.conf = Configuration.new(self.config_file)
 end
 

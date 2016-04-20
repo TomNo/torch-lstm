@@ -4,6 +4,7 @@ require 'cutorch'
 require 'cunn'
 require 'ParallelTable'
 require 'utils'
+require 'NeuralNetwork'
 
 
 tester = torch.Tester()
@@ -304,10 +305,21 @@ for i = 1, #biModules do
 end
 
 
+function testSimpleNet()
+    local testCfg = "test.cfg"
+    local testNetwork = "testNetwork.jsn"
+    local params = {}
+    params.config_file = testCfg
+    local log = "test.log"
+    local net = NeuralNetwork(params)
+    net:init()
+end
+
+
 tester:add(RnnTest)
 tester:add(LstmTest)
 tester:add(GruTest)
 tester:add(testCtc, "CtcForwardBackward")
 
-
+tester:add(testSimpleNet)
 tester:run()

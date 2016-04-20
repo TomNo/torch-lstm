@@ -1,0 +1,46 @@
+{
+    "layers": [
+        {
+            "size": 10,
+            "type": "input"
+        },
+        {
+            "size": 100,
+            "type": "feedforward_relu"
+        },
+        {
+            "size": 100,
+            "type": "feedforward_tanh"
+        },
+        {
+            "size": 100,
+            "type": "feedforward_logistic"
+        },
+        {
+            "size": 100,
+            "type": "bgru"
+        },
+        {
+            "size": 100,
+            "type": "brec_tanh",
+            "dropout": 0.25,
+            "batch_normalization": true
+        },
+        {
+            "size": 100,
+            "type": "brec_logistic"
+        },
+        {
+            "size": 100,
+            "type": "brec_relu"
+        },
+        {
+            "size": 100,
+            "type": "linear"
+        },
+        {
+            "size": 100,
+            "type": "multiclass_classification"
+        }
+    ]
+}
