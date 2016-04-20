@@ -26,7 +26,7 @@ function EarlyStopping:validate(net, dataset, trError)
         if self.bWeights then
             self.bWeights:copy(net.m_params)
         else
-            self.bWeights = net.m_params:clone()
+            self.bWeights = net.m_params:float()
         end
         self.noBest = 1
         self.lError = trError
