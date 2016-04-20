@@ -5,11 +5,6 @@ require 'cunn'
 require 'ParallelTable'
 require 'utils'
 
-torch.class("nn.RegularTanh", "nn.Tanh")
-torch.class("nn.RegularSigmoid", "nn.Sigmoid")
-
---TODO generalize - to much code duplication :D!!!
--- TODO bidirectional and simple rnn
 
 tester = torch.Tester()
 
