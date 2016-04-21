@@ -95,6 +95,8 @@ function NeuralNetwork:init()
     self.desc = json.decode(net_desc)
     self.output_size = self.desc.layers[#self.desc.layers - 1].size
     self.input_size = self.desc.layers[1].size
+    self.inputs = torch.Tensor()
+    self.labels = torch.Tensor()
     if self.conf.cuda then
         local loadCuda = function()
             --cudnn tanh cannot handle non-contingenouse arrays
@@ -107,6 +109,8 @@ function NeuralNetwork:init()
         end
         local cudaEnabled = pcall(loadCuda)
         if not cudaEnabled then print("Could not load cuda.Proceeding anyway.") end
+        self.inputs = self.inputs:cuda()
+        self.labels = self.labels:cuda()
     end
     self.e_stopping = EarlyStopping.new(self.conf.max_epochs_no_best)
     if self.conf.model then
@@ -146,7 +150,7 @@ function NeuralNetwork:init()
     if self.conf.weights then
         self:loadWeights(self.conf.weights)
     end
-    
+
     if not self.conf.model and not self.conf.weights then
         self.model:reset(self.conf.weights_uniform_max)
     end
@@ -319,6 +323,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
             if inputs == nil then
                 break
             end
+            self:_setTrainData(inputs, labels)
             b_count = b_count + 1
             local feval = function(x)
                 collectgarbage()
@@ -328,11 +333,11 @@ function NeuralNetwork:train(dataset, cv_dataset)
                 end
                 -- reset gradients
                 self.m_grad_params:zero()
-                local outputs = self.model:forward(inputs, sizes)
-                local err = self.criterion:forward(outputs, labels, sizes, self.model.bSizes)
+                local outputs = self.model:forward(self.inputs, sizes)
+                local err = self.criterion:forward(outputs, self.labels, sizes, self.model.bSizes)
                 e_error = e_error + err
                 i_count = i_count + utils.sumTable(sizes)
-                self.model:backward(inputs, self.criterion:backward(outputs, labels))
+                self.model:backward(self.inputs, self.criterion:backward(outputs, self.labels))
                 -- apply gradient clipping
                 self.m_grad_params:clamp(CLIP_MIN, CLIP_MAX)
                 if self.conf.verbose then
@@ -484,20 +489,28 @@ function NeuralNetwork:test(dataset)
         if inputs == nil then
             break
         end
+        self:_setTrainData(inputs, labels)
         b_count = b_count + 1
-        local output = self.model:forward(inputs, sizes)
+        local output = self.model:forward(self.inputs, sizes)
         i_count = i_count + utils.sumTable(sizes)
-        c_error = c_error + self.criterion:forward(output, labels, sizes, self.model.bSizes)
+        c_error = c_error + self.criterion:forward(output, self.labels, sizes, self.model.bSizes)
     end
     collectgarbage()
     return c_error / b_count
 end
 
 
+function NeuralNetwork:_setTrainData(inputs, labels)
+    self.inputs:resize(inputs:size(1), inputs:size(2))
+    self.labels:resize(labels:size(1))
+    self.inputs:copy(inputs)
+    self.labels:copy(labels)
+end
+
 
 function NeuralNetwork:saveWeights(filename)
     print("Saving weights into: " .. filename)
-    torch.save(filename, self.m_params)
+    torch.save(filename, self.m_params:float())
 end
 
 
@@ -517,6 +530,9 @@ end
 function NeuralNetwork:loadModel(filename)
     print("Loading model from " .. filename)
     self.model = torch.load(filename)
+    if self.conf.cuda then
+        self.model = self.model:cuda()
+    end
     self.m_params, self.m_grad_params = self.model:getParameters()
 end
 

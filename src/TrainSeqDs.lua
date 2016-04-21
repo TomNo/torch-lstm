@@ -25,13 +25,8 @@ function TrainSeqDs:__init(filename, cuda, load_all)
     self.f = hdf5.open(self.filename)
     self.f_labels = self.f:read(LABELS)
     self.f_features = self.f:read(FEATURES)
-    if cuda then
-        self.data = torch.CudaTensor()
-        self.labels = torch.CudaTensor()
-    else
-        self.data = torch.Tensor()
-        self.labels = torch.Tensor()
-    end
+    self.data = torch.Tensor()
+    self.labels = torch.Tensor()
     self:_readSize()
     self:_readSeqSizes()
     if load_all then
