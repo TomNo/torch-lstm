@@ -311,8 +311,12 @@ function testSimpleNet()
     local params = {}
     params.config_file = testCfg
     local log = "test.log"
+    local bPrint = print
+    -- do not print anything to stdout
+    print = function() return end
     local net = NeuralNetwork(params)
     net:init()
+    print = bPrint
 end
 
 
@@ -321,5 +325,5 @@ tester:add(LstmTest)
 tester:add(GruTest)
 tester:add(testCtc, "CtcForwardBackward")
 
-tester:add(testSimpleNet)
+tester:add(testSimpleNet, "TestModelCreation")
 tester:run()
