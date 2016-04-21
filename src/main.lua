@@ -1,7 +1,7 @@
 require 'utils'
 require 'torch'
 require 'NeuralNetwork'
-require 'TrainSeqDs'
+require 'TrainDs'
 require 'TestSeqDs'
 require 'OutputDs'
 
@@ -52,7 +52,7 @@ if params.forward_pass then
     while true do
         local seq = testDs:getSeq()
         if seq then
-            outputDs:save(net:forward(seq.data, net.conf.truncate_seq / 4), seq.tag)
+            outputDs:save(net:forward(seq.data, net.conf.history / 4), seq.tag)
         else
             break
         end
@@ -60,8 +60,8 @@ if params.forward_pass then
     outputDs:close()
     print("Forward pass was saved to the: " .. params.forward_output)
 else
-    local train_ds = TrainSeqDs(net.conf.train_file, net.conf.cuda, true)
-    local val_ds = TrainSeqDs(net.conf.val_file, net.conf.cuda, true)
+    local train_ds = TrainDs(net.conf.train_file, net.conf.cuda, true)
+    local val_ds = TrainDs(net.conf.val_file, net.conf.cuda, true)
     net:train(train_ds, val_ds)
     net:saveModel(params.output_model)
 end

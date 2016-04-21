@@ -8,13 +8,13 @@
             "size": 512,
             "type": "brec_relu",
             "dropout": 0.0,
-            "batch_normalization": true
+            "batch_normalization": false
         },
         {
             "size": 512,
             "type": "brec_relu",
             "dropout": 0.0,
-            "batch_normalization": true
+            "batch_normalization": false
         },
         {
             "size": 1940,

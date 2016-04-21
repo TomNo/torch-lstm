@@ -172,7 +172,7 @@ function NeuralNetwork:_addCriterion(layer)
     if layer.type == NeuralNetwork.MULTICLASS_CLASSIFICATION then
         self.criterion = nn.CrossEntropyCriterion()
     elseif layer.type == NeuralNetwork.CTC then
-        self.criterion = nn.CtcCriterion(self.conf.truncate_seq)
+        self.criterion = nn.CtcCriterion(self.conf.history)
     else
         error("Unknown objective function " .. layer["type"] .. ".")
     end
@@ -229,29 +229,29 @@ function NeuralNetwork:_addLayer(layer, p_layer)
         end
         self.model:add(nn.ReLU())
     elseif layer.type == NeuralNetwork.IREC_RELU then
-        self.model:add(nn.IRecLayer(nn.ReLU, p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
+        self.model:add(nn.IRecLayer(nn.ReLU, p_layer.size, layer.size, self.conf.history, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.B_IREC_RELU then
-        self.model:add(nn.BIRecLayer(nn.ReLU, p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
+        self.model:add(nn.BIRecLayer(nn.ReLU, p_layer.size, layer.size, self.conf.history, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.REC_RELU then
-        self.model:add(nn.RecLayer(nn.ReLU, p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
+        self.model:add(nn.RecLayer(nn.ReLU, p_layer.size, layer.size, self.conf.history, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.REC_TANH then
-        self.model:add(nn.RecLayer(nn.Tanh, p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
+        self.model:add(nn.RecLayer(nn.Tanh, p_layer.size, layer.size, self.conf.history, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.REC_LOGISTIC then
-        self.model:add(nn.RecLayer(nn.Sigmoid, p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
+        self.model:add(nn.RecLayer(nn.Sigmoid, p_layer.size, layer.size, self.conf.history, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.B_REC_RELU then
-        self.model:add(nn.BiRecLayer(nn.ReLU, p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
+        self.model:add(nn.BiRecLayer(nn.ReLU, p_layer.size, layer.size, self.conf.history, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.B_REC_TANH then
-        self.model:add(nn.BiRecLayer(nn.Tanh, p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
+        self.model:add(nn.BiRecLayer(nn.Tanh, p_layer.size, layer.size, self.conf.history, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.B_REC_LOGISTIC then
-        self.model:add(nn.BiRecLayer(nn.Sigmoid, p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
+        self.model:add(nn.BiRecLayer(nn.Sigmoid, p_layer.size, layer.size, self.conf.history, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.LSTM then
-        self.model:add(nn.Lstm(p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
+        self.model:add(nn.Lstm(p_layer.size, layer.size, self.conf.history, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.BLSTM then
-        self.model:add(nn.Blstm(p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
+        self.model:add(nn.Blstm(p_layer.size, layer.size, self.conf.history, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.GRU then
-        self.model:add(nn.Gru(p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
+        self.model:add(nn.Gru(p_layer.size, layer.size, self.conf.history, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.BGRU then
-        self.model:add(nn.Bgru(p_layer.size, layer.size, self.conf.truncate_seq, layer.batch_normalization))
+        self.model:add(nn.Bgru(p_layer.size, layer.size, self.conf.history, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.LINEAR then
         self.model:add(nn.Linear(p_layer.size, layer.size))
     else
@@ -294,25 +294,18 @@ function NeuralNetwork:train(dataset, cv_dataset)
 
     for epoch = 1, self.conf.max_epochs do
         self.model:training()
+        collectgarbage()
         print('==> doing epoch ' .. epoch .. ' on training data.')
         local time = sys.clock()
-        if not self.conf.full_sequences then
-            dataset:startBatchIteration(self.conf.parallel_sequences,
-                self.conf.truncate_seq,
-                self.conf.shuffle_sequences,
-                self.conf.random_shift,
-                self.conf.overlap)
-        else
-            local cLabels = true
-            if torch.type(self.criterion) == self.CTC_CRITERION then
-                cLabels = false
-            end
-            dataset:startParallelSeq(self.conf.parallel_sequences,
-                                     self.conf.truncate_seq,
-                                     self.conf.shuffle_sequences,
-                                     cLabels)
+        local cLabels = true
+        if torch.type(self.criterion) == self.CTC_CRITERION then
+            cLabels = false
         end
-
+        dataset:startBatchIteration(self.conf.sampling_type,
+                                    self.conf.batch_size,
+                                    self.conf.shuffle,
+                                    self.conf.history,
+                                    self.conf.split_sequences, cLabels)
         local e_error = 0
         local e_predictions = 0
         local i_count = 0
@@ -423,21 +416,21 @@ function NeuralNetwork:forward(data, overlap)
 
     overlap = overlap or 0
 
-    if data:size(1) <= self.conf.truncate_seq then
+    if data:size(1) <= self.conf.history then
         return self.model:forward(data:cuda(), {data:size(1)}):float()
     end
 
-    local step = self.conf.truncate_seq - 2 * overlap
+    local step = self.conf.history - 2 * overlap
 
     local iSeqs = math.floor((data:size(1) - 2*overlap) / step)
     local overhang = data:size(1) % step
 
-    local input = torch.Tensor(iSeqs * self.conf.truncate_seq, data:size(2))
+    local input = torch.Tensor(iSeqs * self.conf.history, data:size(2))
     local sizes = {}
     for i=1, iSeqs do
-        table.insert(sizes, self.conf.truncate_seq)
+        table.insert(sizes, self.conf.history)
     end
-    for y=1, self.conf.truncate_seq do
+    for y=1, self.conf.history do
         for i=1, iSeqs do
             input[(y - 1) * iSeqs + i] = data[(i - 1) *  step + y]
         end
@@ -447,7 +440,7 @@ function NeuralNetwork:forward(data, overlap)
 
     local output = torch.Tensor(data:size(1), self.output_size)
     --calculate first the end of the sequence
-    local eInt = {{data:size(1) - self.conf.truncate_seq + 1, data:size(1)}}
+    local eInt = {{data:size(1) - self.conf.history + 1, data:size(1)}}
     output[eInt]:copy(self.model:forward(data[eInt]:cuda(), {data[eInt]:size(1)}))
     -- cut off output that goes after each other between overlap and overlap + step time step
     local modelOutput = self.model:forward(input, sizes)
@@ -471,18 +464,15 @@ function NeuralNetwork:test(dataset)
     local b_count = 0
     local i_count = 0
     self.model:evaluate()
-    if not self.conf.full_sequences then
-        dataset:startBatchIteration(self.conf.parallel_sequences,
-                                    self.conf.truncate_seq)
-    else
-        local cLabels = true
-        if torch.type(self.criterion) == self.CTC_CRITERION then
-            cLabels = false
-        end
-        dataset:startParallelSeq(self.conf.parallel_sequences,
-                             self.conf.truncate_seq,
-                             false, cLabels)
+    local cLabels = true
+    if torch.type(self.criterion) == self.CTC_CRITERION then
+        cLabels = false
     end
+    dataset:startBatchIteration(self.conf.sampling_type,
+                                self.conf.batch_size,
+                                false,
+                                self.conf.history,
+                                self.conf.split_sequences, cLabels)
 
     while true do
         local inputs, labels, sizes = dataset:nextBatch()
