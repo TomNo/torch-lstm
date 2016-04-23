@@ -18,6 +18,7 @@ local COLS = "cols"
 
 TrainDs.FRAME_ITER = "frame"
 TrainDs.SEQ_ITER = "seq"
+TrainDs.FRAC_ITER = "seq_frac"
 
 
 function TrainDs:__init(filename, cuda, load_all)
@@ -115,6 +116,31 @@ function TrainDs:startSeqIteration(shuffle)
 end
 
 
+function TrainDs:startFracIteration(shuffle)
+    self.seq_index = 1
+    local bCount = #self.seqIntervals / self.bSize
+    if #self.seqIntervals % self.bSize ~= 0 then
+        bCount = bCount + 1
+    end
+    local fracIndexes
+    if shuffle then
+        fracIndexes = torch.randperm(bCount)
+    else
+        fracIndexes = torch.range(1, bCount)
+    end
+    self.seq_indexes = torch.zeros(#self.seqIntervals)
+    local index = 1
+    for i=1, bCount do
+        local s = (fracIndexes[i] - 1) * self.bSize + 1
+        local e = math.min(s + self.bSize - 1, #self.seqIntervals)
+        for y=s, e do
+            self.seq_indexes[index] = y
+            index = index + 1
+        end
+    end
+end
+
+
 function TrainDs:getSeq()
     if self.seq_index > #self.seqIntervals then
         return nil
@@ -158,7 +184,7 @@ end
 
 
 function TrainDs:startBatchIteration(type, bSize, shuffle, hSize, split,
-formatLabels)
+                                     formatLabels)
     self.bSize = bSize
     self.hSize = hSize or math.huge
     self.shuffle = shuffle
@@ -172,6 +198,9 @@ formatLabels)
     elseif type == TrainDs.SEQ_ITER then
         self.getItem = self.getSeq
         self:startSeqIteration(shuffle)
+    elseif type == TrainDs.FRAC_ITER then
+        self.getItem = self.getSeq
+        self:startFracIteration(shuffle)
     else
         error("Unknown iteration type.")
     end
