@@ -212,14 +212,16 @@ function testDifferentSeqLenghts(module)
     local iSize = 2
     local oSize = 4
     local aHist = 3
-    local bhist = 5
+    local bHist = 5
     local cHist = 10
-    local hSizes = {10, 5, 3}
+    local hSizes = {cHist, bHist, aHist}
     local mods = {}
     local inputs = {}
     local outputs = {}
     local mHist = utils.sumTable(hSizes)
-    local mMod = module(iSize, oSize, mHist)
+    local mMod = nn.Sequential()
+    mMod:add(module(iSize, oSize, mHist))
+    mMod:add(module(oSize, oSize, mHist))
     mMod:apply(function (m) m.bSizes = utils.getBatchSizes(hSizes) end)
     local mInput = torch.ones(mHist, iSize)
     mMod:forward(mInput)
@@ -227,7 +229,9 @@ function testDifferentSeqLenghts(module)
     mDx:zero()
     local grads = {}
     for i=1, #hSizes do
-        local mod = module(iSize, oSize, hSizes[i])
+        local mod = nn.Sequential()
+        mod:add(module(iSize, oSize, hSizes[i]))
+        mod:add(module(oSize, oSize, hSizes[i]))
         mod:apply(function (m) m.bSizes = utils.getBatchSizes({hSizes[i]}) end)
         local x, dx  = mod:getParameters()
         dx:zero()
