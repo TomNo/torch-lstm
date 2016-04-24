@@ -7,22 +7,22 @@
         {
             "size": 1024,
             "type": "feedforward_relu",
-            "batch_normalization": true
+            "batch_normalization": false
         },
         {
             "size": 1024,
             "type": "feedforward_relu",
-            "batch_normalization": true
+            "batch_normalization": false
         },
         {
             "size": 1024,
             "type": "feedforward_relu",
-            "batch_normalization": true
+            "batch_normalization": false
         },
         {
             "size": 1024,
             "type": "feedforward_relu",
-            "batch_normalization": true
+            "batch_normalization": false
         },
         {
             "size": 4016,
