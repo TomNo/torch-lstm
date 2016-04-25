@@ -96,7 +96,7 @@ function TrainDs:_getData(dataInt, labInt)
     local labels = nil
     if self.load_all then
         data = self.a_features[{ dataInt, { 1, self.cols } }]:clone()
-        labels = self.a_labels[{ dataInt }]:clone()
+        labels = self.a_labels[{ labInt }]:clone()
     else
         data = self.f_features:partial(labInt, { 1, self.cols })
         labels = self.f_labels:partial(labInt)
