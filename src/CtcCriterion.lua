@@ -26,6 +26,7 @@ function CtcCriterion:updateOutput(input, target)
     self.grads:resizeAs(self.aInput)
     local costs = self.ctc(self.aInput, self.grads, target, self.sizes)
     self.output = utils.sumTable(costs)
+    self.output = self.output / #costs
     return self.output
 end
 

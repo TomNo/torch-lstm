@@ -492,9 +492,13 @@ end
 
 function NeuralNetwork:_setTrainData(inputs, labels)
     self.inputs:resize(inputs:size(1), inputs:size(2))
-    self.labels:resize(labels:size(1))
     self.inputs:copy(inputs)
-    self.labels:copy(labels)
+    if torch.type(labels) ~= "table" then
+        self.labels:resize(labels:size(1))
+        self.labels:copy(labels)
+    else
+        self.labels = labels
+    end
 end
 
 

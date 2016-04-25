@@ -70,6 +70,7 @@ function TrainDs:_genIntervals()
     end
 
     self.labIntervals = {}
+    acc = 0
     for i = 1, self.lab_sizes:size(1) do
         acc = acc + self.lab_sizes[i]
         table.insert(self.labIntervals, acc)
@@ -153,7 +154,7 @@ function TrainDs:getSeq()
         startLab = self.labIntervals[r_index - 1] + 1
     end
     local seqInterval = { startSeq, self.seqIntervals[r_index] }
-    local labInterval = { startSeq, self.labIntervals[r_index] }
+    local labInterval = { startLab, self.labIntervals[r_index] }
     self.seq_index = self.seq_index + 1
     return self:_getData(seqInterval, labInterval)
 end
@@ -274,9 +275,9 @@ function TrainDs:nextBatch()
         end
         labels = self.labels
     else -- ctc
-    for i = 1, aBCount do
-        table.insert(labels, self.buffer[i][2]:float():totable())
-    end
+        for i = 1, aBCount do
+            table.insert(labels, self.buffer[i][2]:float():totable())
+        end
     end
     -- remove used seqs
     local aSizes = {}
