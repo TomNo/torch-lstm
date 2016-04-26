@@ -394,7 +394,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
         end
 
         if not self.conf.validate_every or epoch % self.conf.validate_every == 0 then
-            if cv_dataset and not self.e_stopping:validate(self, cv_dataset, e_error) then
+            if cv_dataset and not self.e_stopping:validate(self, cv_dataset) then
                 print("No lowest validation error was reached -> stopping training.")
                 self.m_params:copy(self.e_stopping:getBestWeights())
                 break
