@@ -25,6 +25,8 @@ function CtcCriterion:updateOutput(input, target)
     self:_unfoldInput(input)
     self.grads:resizeAs(self.aInput)
     local costs = self.ctc(self.aInput, self.grads, target, self.sizes)
+    -- remove nans and infs as ctc is sometimes pretty unstable
+    costs = utils.removeNonNumbers(costs)
     self.output = utils.sumTable(costs)
     self.output = self.output / #costs
     return self.output

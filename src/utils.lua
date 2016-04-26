@@ -31,3 +31,17 @@ function utils.getBatchSizes(sizes)
     return bSizes
 end
 
+
+function utils.isNumber(num)
+    return num > -math.huge and num < math.huge
+end
+
+
+function utils.removeNonNumbers(x)
+    for i=#x, 1, -1 do
+        if not utils.isNumber(x[i]) then
+            table.remove(x, i)
+        end
+    end
+    return x
+end
