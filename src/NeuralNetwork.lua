@@ -483,7 +483,14 @@ function NeuralNetwork:test(dataset)
         b_count = b_count + 1
         local output = self.model:forward(self.inputs, sizes)
         i_count = i_count + utils.sumTable(sizes)
-        c_error = c_error + self.criterion:forward(output, self.labels, sizes, self.model.bSizes)
+        if self.criterion.forwardOnly then
+            c_error = c_error + self.criterion:forwardOnly(output, self.labels,
+                sizes, self.model.bSizes)
+        else
+            c_error = c_error + self.criterion:forward(output, self.labels,
+                sizes, self.model.bSizes)
+        end
+
     end
     collectgarbage()
     return c_error / b_count

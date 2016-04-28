@@ -21,10 +21,23 @@ function CtcCriterion:forward(input, target, sizes, bSizes)
     return self:updateOutput(input, target, sizes)
 end
 
+
+function CtcCriterion:forwardOnly(...)
+    self.fOnly = true
+    self:forward(...)
+    self.fOnly = false
+    return self.output
+end
+
 function CtcCriterion:updateOutput(input, target)
     self:_unfoldInput(input)
-    self.grads:resizeAs(self.aInput)
-    local costs = self.ctc(self.aInput, self.grads, target, self.sizes)
+    local costs
+    if not self.fOnly then
+        self.grads:resizeAs(self.aInput)
+        costs = self.ctc(self.aInput, self.grads, target, self.sizes)
+    else
+        costs = self.ctc(self.aInput, self.aInput.new(), target, self.sizes)
+    end
     -- remove nans and infs as ctc is sometimes pretty unstable
     costs = utils.removeNonNumbers(costs)
     self.output = utils.sumTable(costs)
@@ -84,26 +97,5 @@ function CtcCriterion:double()
     return toDouble
 end
 
--- extract ctc labels from the regular labels that has for every frame some
--- label
---function CtcCriterion:_getLabels(target)
---    local labels = {}
---    local seQCount = target:size(1) / self.history
---    -- initialize and insert first label
---    for i=1, seQCount do
---        table.insert(labels, {target[i]})
---    end
---
---    -- iterate over labels and if target is not the same as in the previous
---    -- timestep insert it
---    for i=1, self.history - 1 do
---        for y=1, seQCount do
---            if target[i * seQCount + y] ~= target[(i-1) * seQCount + y] then
---                table.insert(labels[y], target[i * seQCount + y])
---            end
---        end
---    end
---    return labels
---end
 
 --eof
