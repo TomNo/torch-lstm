@@ -35,6 +35,10 @@ function CtcCriterion:updateOutput(input, target)
     if not self.fOnly then
         self.grads:resizeAs(self.aInput)
         costs = self.ctc(self.aInput, self.grads, target, self.sizes)
+        if self.grads:ne(self.grads):sum() > 0 then
+            print(self.aInput)
+            error("Nans occured in self.grads.")
+        end
     else
         costs = self.ctc(self.aInput, self.aInput.new(), target, self.sizes)
     end
