@@ -1,0 +1,31 @@
+{
+    "layers": [
+        {
+            "size": 120,
+            "type": "input"
+        },
+        {
+            "size": 4016,
+            "type": "feedforward_relu",
+            "batch_normalization": true
+        },
+        {
+            "size": 4016,
+            "type": "feedforward_relu",
+            "batch_normalization": true
+        },
+        {
+            "size": 4016,
+            "type": "feedforward_relu",
+            "batch_normalization": true
+        },
+        {
+            "size": 4016,
+            "type": "linear"
+        },
+        {
+            "size": 4016,
+            "type": "multiclass_classification"
+        }
+    ]
+}
