@@ -1,0 +1,56 @@
+{
+    "layers": [
+        {
+            "size": 120,
+            "type": "input"
+        },
+        {
+            "size": 1024,
+            "type": "feedforward_relu",
+            "batch_normalization": false
+        },
+        {
+            "size": 1024,
+            "type": "feedforward_relu",
+            "batch_normalization": false
+        },
+        {
+            "size": 1024,
+            "type": "feedforward_relu",
+            "batch_normalization": false
+        },
+        {
+            "size": 1024,
+            "type": "feedforward_relu",
+            "batch_normalization": false
+        },
+        {
+            "size": 1024,
+            "type": "feedforward_relu",
+            "batch_normalization": false
+        },
+        {
+            "size": 1024,
+            "type": "feedforward_relu",
+            "batch_normalization": false
+        },
+        {
+            "size": 1024,
+            "type": "feedforward_relu",
+            "batch_normalization": false
+        },
+        {
+            "size": 1024,
+            "type": "feedforward_relu",
+            "batch_normalization": false
+        },
+        {
+            "size": 4016,
+            "type": "linear"
+        },
+        {
+            "size": 4016,
+            "type": "multiclass_classification"
+        }
+    ]
+}
