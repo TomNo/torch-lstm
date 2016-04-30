@@ -6,17 +6,22 @@
         },
         {
             "size": 1024,
-            "type": "blstm",
+            "type": "bgru",
             "batch_normalization": false
         },
         {
             "size": 1024,
-            "type": "blstm",
+            "type": "bgru",
             "batch_normalization": false
         },
         {
             "size": 1024,
-            "type": "blstm",
+            "type": "bgru",
+            "batch_normalization": false
+        },
+        {
+            "size": 1024,
+            "type": "bgru",
             "batch_normalization": false
         },
         {

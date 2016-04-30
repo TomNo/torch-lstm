@@ -6,57 +6,57 @@
         },
         {
             "size": 1024,
-            "type": "brec_tanh",
+            "type": "brec_logistic",
             "batch_normalization": false
         },
         {
             "size": 1024,
-            "type": "brec_tanh",
+            "type": "brec_logistic",
             "batch_normalization": false
         },
         {
             "size": 1024,
-            "type": "brec_tanh",
+            "type": "brec_logistic",
             "batch_normalization": false
         },
         {
             "size": 1024,
-            "type": "brec_tanh",
+            "type": "brec_logistic",
             "batch_normalization": false
         },
         {
             "size": 1024,
-            "type": "brec_tanh",
+            "type": "brec_logistic",
             "batch_normalization": false
         },
         {
             "size": 1024,
-            "type": "brec_tanh",
+            "type": "brec_logistic",
             "batch_normalization": false
         },
         {
             "size": 1024,
-            "type": "brec_tanh",
+            "type": "brec_logistic",
             "batch_normalization": false
         },
         {
             "size": 1024,
-            "type": "brec_tanh",
+            "type": "brec_logistic",
             "batch_normalization": false
         },
         {
             "size": 1024,
-            "type": "brec_tanh",
+            "type": "brec_logistic",
             "batch_normalization": false
         },
         {
             "size": 1024,
-            "type": "brec_tanh",
+            "type": "brec_logistic",
             "batch_normalization": false
         },
         {
             "size": 1024,
-            "type": "brec_tanh",
+            "type": "brec_logistic",
             "batch_normalization": false
         },
         {

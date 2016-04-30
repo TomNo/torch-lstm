@@ -15,11 +15,11 @@
             "batch_normalization": false
         },
         {
-            "size": 43,
+            "size": 42,
             "type": "linear"
         },
         {
-            "size": 43,
+            "size": 42,
             "type": "ctc"
         }
     ]
