@@ -15,11 +15,6 @@
             "batch_normalization": false
         },
         {
-            "size": 1024,
-            "type": "blstm",
-            "batch_normalization": false
-        },
-        {
             "size": 42,
             "type": "linear"
         },
