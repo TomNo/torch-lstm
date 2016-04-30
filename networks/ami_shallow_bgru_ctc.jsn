@@ -1,0 +1,31 @@
+{
+    "layers": [
+        {
+            "size": 120,
+            "type": "input"
+        },
+        {
+            "size": 1024,
+            "type": "blstm",
+            "batch_normalization": false
+        },
+        {
+            "size": 1024,
+            "type": "blstm",
+            "batch_normalization": false
+        },
+        {
+            "size": 1024,
+            "type": "blstm",
+            "batch_normalization": false
+        },
+        {
+            "size": 42,
+            "type": "linear"
+        },
+        {
+            "size": 42,
+            "type": "ctc"
+        }
+    ]
+}

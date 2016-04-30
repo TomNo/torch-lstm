@@ -52,6 +52,8 @@ NeuralNetwork.B_REC_LOGISTIC = "brec_logistic"
 NeuralNetwork.B_REC_RELU = "brec_relu"
 NeuralNetwork.IREC_RELU = "irec_relu"
 NeuralNetwork.B_IREC_RELU = "birec_relu"
+NeuralNetwork.B_IREC_TANH = "birec_tanh"
+NeuralNetwork.B_IREC_LOGISTIC = "birec_logistic"
 NeuralNetwork.MULTICLASS_CLASSIFICATION = "multiclass_classification"
 NeuralNetwork.CTC = "ctc"
 NeuralNetwork.LINEAR = "linear"
@@ -232,6 +234,10 @@ function NeuralNetwork:_addLayer(layer, p_layer)
         self.model:add(nn.IRecLayer(nn.ReLU, p_layer.size, layer.size, self.conf.history, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.B_IREC_RELU then
         self.model:add(nn.BIRecLayer(nn.ReLU, p_layer.size, layer.size, self.conf.history, layer.batch_normalization))
+    elseif layer.type == NeuralNetwork.B_IREC_TANH then
+        self.model:add(nn.BIRecLayer(nn.Tanh, p_layer.size, layer.size, self.conf.history, layer.batch_normalization))
+    elseif layer.type == NeuralNetwork.B_IREC_LOGISTIC then
+        self.model:add(nn.BIRecLayer(nn.Sigmoid, p_layer.size, layer.size, self.conf.history, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.REC_RELU then
         self.model:add(nn.RecLayer(nn.ReLU, p_layer.size, layer.size, self.conf.history, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.REC_TANH then
