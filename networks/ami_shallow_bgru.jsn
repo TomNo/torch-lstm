@@ -20,6 +20,11 @@
             "batch_normalization": false
         },
         {
+            "size": 1024,
+            "type": "bgru",
+            "batch_normalization": false
+        },
+        {
             "size": 4016,
             "type": "linear"
         },
