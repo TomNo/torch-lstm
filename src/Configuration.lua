@@ -12,7 +12,7 @@ end
 
 -- Set default values for not filled options
 function Configuration:_setDefaults()
-    self.decay_every = self.decay_every or 1
+    self.decay_every = self.decay_every or 2
     self.learning_rate_decay = self.learning_rate_decay or 0.5
     self.min_learning_rate = self.min_learning_rate or 0.00003
     self.momentum = self.momentum or 0
