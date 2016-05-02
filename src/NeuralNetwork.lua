@@ -13,6 +13,7 @@ require 'RecLayer'
 require 'CtcCriterion'
 require 'rmsprop'
 require 'ParallelTable'
+require 'FFLayer'
 
 
 -- TODO resolve bgru batchnormalization and bias
@@ -40,10 +41,11 @@ end
 
 local NeuralNetwork = torch.class('NeuralNetwork')
 
-
+NeuralNetwork.FEED_FORWARD = "feedforward"
 NeuralNetwork.FEED_FORWARD_TANH = "feedforward_tanh"
 NeuralNetwork.FEED_FORWARD_LOGISTIC = "feedforward_logistic"
 NeuralNetwork.FEED_FORWARD_RELU = "feedforward_relu"
+NeuralNetwork.FEED_FORWARD_PRELU = "feedforward_prelu"
 NeuralNetwork.REC_TANH = "rec_tanh"
 NeuralNetwork.REC_LOGISTIC = "rec_logistic"
 NeuralNetwork.REC_RELU = "rec_relu"
@@ -212,24 +214,19 @@ function NeuralNetwork:_addLayer(layer, p_layer)
     if p_layer == nil then error("Missing previous layer argument.") end
     if layer.type == NeuralNetwork.INPUT then
         return
-    elseif layer.type == NeuralNetwork.FEED_FORWARD_LOGISTIC then
-        self.model:add(nn.Linear(p_layer.size, layer.size))
-        if layer.batch_normalization then
-            self.model:add(nn.BatchNormalization(layer.size))
+        -- feedforward
+    elseif string.match(layer.type, NeuralNetwork.FEED_FORWARD) then
+        local aType = nil
+        if layer.type == NeuralNetwork.FEED_FORWARD_LOGISTIC then
+            aType = nn.Sigmoid
+        elseif layer.type == NeuralNetwork.FEED_FORWARD_TANH then
+            aType = nn.Tanh
+        elseif layer.type == NeuralNetwork.FEED_FORWARD_RELU then
+            aType = nn.ReLU
+        elseif layer.type == NeuralNetwork.FEED_FORWARD_PRELU then
+            aType = nn.PReLU
         end
-        self.model:add(nn.Sigmoid())
-    elseif layer.type == NeuralNetwork.FEED_FORWARD_TANH then
-        self.model:add(nn.Linear(p_layer.size, layer.size))
-        if layer.batch_normalization then
-            self.model:add(nn.BatchNormalization(layer.size))
-        end
-        self.model:add(nn.Tanh())
-    elseif layer.type == NeuralNetwork.FEED_FORWARD_RELU then
-        self.model:add(nn.Linear(p_layer.size, layer.size))
-        if layer.batch_normalization then
-            self.model:add(nn.BatchNormalization(layer.size))
-        end
-        self.model:add(nn.ReLU())
+        self.model:add(nn.FFLayer(p_layer.size, layer.size, aType, layer.batch_normalization, layer.dropout))
     elseif layer.type == NeuralNetwork.IREC_RELU then
         self.model:add(nn.IRecLayer(nn.ReLU, p_layer.size, layer.size, self.conf.history, layer.batch_normalization))
     elseif layer.type == NeuralNetwork.B_IREC_RELU then
@@ -262,9 +259,6 @@ function NeuralNetwork:_addLayer(layer, p_layer)
         self.model:add(nn.Linear(p_layer.size, layer.size))
     else
         error("Unknown layer type: " .. layer.type ".")
-    end
-    if layer.dropout and layer.dropout > 0 then
-        self.model:add(nn.Dropout(layer.dropout))
     end
 end
 
