@@ -32,7 +32,7 @@ end
 
 
 function BatchRecurrent:__tostring__()
-    return torch.type(self) .. string.format('(%d -> %d, BatchNormalized=%s)',
+    return torch.type(self) .. string.format('(%d -> %d, BatchNormalized=%s, Dropout=%s)',
                                              self.inputSize,
                                              self.layerSize,
                                              self.bNorm,
