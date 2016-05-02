@@ -35,9 +35,9 @@ end
 local RecLayer = torch.class("nn.RecLayer", "nn.BatchRecurrent")
 
 
-function RecLayer:__init(actType, inputSize, layerSize, hist, bNorm)
+function RecLayer:__init(actType, inputSize, layerSize, hist, bNorm, dropout)
     self.aType = actType
-    nn.BatchRecurrent.__init(self, inputSize, layerSize, hist, bNorm)
+    nn.BatchRecurrent.__init(self, inputSize, layerSize, hist, bNorm, dropout)
 end
 
 
@@ -48,9 +48,9 @@ end
 
 local BiRecLayer = torch.class("nn.BiRecLayer", "nn.Bidirectional")
 
-function BiRecLayer:__init(aType, inputSize, layerSize, hist, bNorm)
+function BiRecLayer:__init(aType, inputSize, layerSize, hist, bNorm, dropout)
     self.aType = aType
-    nn.Bidirectional.__init(self, inputSize, layerSize, hist, bNorm)
+    nn.Bidirectional.__init(self, inputSize, layerSize, hist, bNorm, dropout)
 end
 
 
