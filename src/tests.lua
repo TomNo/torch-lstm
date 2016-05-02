@@ -194,7 +194,7 @@ function testCtc()
     local bSizes = {3,2,2}
     local grads = acts:clone():fill(0)
     local f = gpu_ctc(acts, grads, labels, sizes)
-    local sum_f = utils.sumTable(f)
+    local sum_f = utils.sumTable(f) / #f
     local bActs = torch.Tensor({{1,2,3,4,5},{1,2,3,4,5},{-5,-4,-3,-2,-1},
                             {6,7,8,9,10},{6,7,8,9,10},
                             {-5,4,3,-1,11},{11,12,13,14,15}}):cuda()
