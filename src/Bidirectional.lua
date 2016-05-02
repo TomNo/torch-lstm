@@ -7,10 +7,11 @@ require 'SharedInput'
 local Bidirectional = torch.class("nn.Bidirectional", "nn.BatchRecurrent")
 
 
-function Bidirectional:__init(inputSize, layerSize, hist, bNorm)
+function Bidirectional:__init(inputSize, layerSize, hist, bNorm, dropout)
     assert(layerSize % 2 == 0, "Layer must have even count of neurons.")
     nn.Sequential.__init(self)
     self.aSize = layerSize / 2
+    self.dropout = dropout or 0
     self.bNorm = bNorm or false
     self.layerSize = layerSize
     self.inputSize = inputSize
@@ -21,6 +22,9 @@ function Bidirectional:__init(inputSize, layerSize, hist, bNorm)
     if bNorm then
         self.fModule:add(nn.BatchNormalization(self.aModule.inputSize))
     end
+     if self.dropout ~= 0 then
+        self.fModule:add(nn.Dropout(self.dropout))
+     end
     self.fModule:add(self.aModule)
 
     self.bModule = nn.Sequential()
@@ -28,6 +32,9 @@ function Bidirectional:__init(inputSize, layerSize, hist, bNorm)
     if bNorm then
         self.bModule:add(nn.BatchNormalization(self.aModule.inputSize))
     end
+    if self.dropout ~= 0 then
+        self.bModule:add(nn.Dropout(self.dropout))
+     end
     local bModule = self.aModule:clone()
     bModule.revert = true
     self.bModule:add(bModule)
