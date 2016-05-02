@@ -3,6 +3,10 @@ require 'torch'
 
 local EarlyStopping = torch.class('EarlyStopping')
 
+-- for epoch to count as improvement the improvement on cross validation error
+-- must be greater than 1%
+EarlyStopping.MIN_DIFFERENCE_RATE = 0.01
+
 
 function EarlyStopping:__init(history)
     self.history = history
@@ -26,11 +30,16 @@ function EarlyStopping:validate(net, dataset)
         else
             self.bWeights = net.m_params:float()
         end
-        self.noBest = 1
         self.lError = cv_c_error
-    else
-        self.noBest = self.noBest + 1
     end
+    local mImpr = self.lError * self.MIN_DIFFERENCE_RATE
+    local impr = self.lError - cv_c_error
+    if cv_c_error >= self.lError or impr < mImpr then
+        self.noBest = self.noBest + 1
+    else
+        self.noBest = 1
+    end
+
     if self.noBest > self.history then
         return false
     end
