@@ -281,6 +281,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
         learningRate = self.conf.learning_rate,
         weightDecay = self.conf.weight_decay,
         momentum = self.conf.momentum,
+        nesterov = self.conf.nesterov_momentum
     }
     local state = {}
     if self.conf.optimizer_state then
@@ -420,11 +421,9 @@ function NeuralNetwork:forward(data, overlap)
     self.model:evaluate()
 
     overlap = overlap or 0
-
     if data:size(1) <= self.conf.history then
         return self.model:forward(data:cuda(), { data:size(1) }):float()
     end
-
     local step = self.conf.history - 2 * overlap
 
     local iSeqs = math.floor((data:size(1) - 2 * overlap) / step)
