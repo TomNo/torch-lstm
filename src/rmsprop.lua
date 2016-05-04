@@ -14,7 +14,7 @@ function optim.rmsprop(opfunc, x, config, state)
     local alpha = config.alpha or 0.99
     local epsilon = config.epsilon or 1e-8
     local momentum = config.momentum or 0.9
-    local nesterov = config.nesterov_momentum or false
+    local nesterov = config.nesterov or false
 
     -- if nesterov do the update first
     if state.update and nesterov then
@@ -65,7 +65,7 @@ function optim.grmsprop(opfunc, x, config, state)
     local alpha = config.alpha or 0.99
     local epsilon = config.epsilon or 1e-8
     local momentum = config.momentum or 0.9
-    local nesterov = config.nesterov_momentum or false
+    local nesterov = config.nesterov or false
 
     -- if nesterov do the update first
     if state.update and nesterov then
