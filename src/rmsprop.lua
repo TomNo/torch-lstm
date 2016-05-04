@@ -16,16 +16,9 @@ function optim.rmsprop(opfunc, x, config, state)
     local momentum = config.momentum or 0.9
     local nesterov = config.nesterov_momentum or false
 
-    if state.update then
-        if state.x then
-            state.x:copy(x)
-        else
-            state.x = x:clone()
-        end
-        -- if nesterov do the update first
-        if nesterov then
-            x:add(config.momentum, state.update)
-        end
+    -- if nesterov do the update first
+    if state.update and nesterov then
+        x:add(config.momentum, state.update)
     end
 
     local fx, dfdx = opfunc(x)
@@ -47,10 +40,10 @@ function optim.rmsprop(opfunc, x, config, state)
     state.tmp:sqrt(state.m):add(epsilon)
     if momentum ~= 0 then
         state.update:mul(momentum):addcdiv(-lr, dfdx, state.tmp)
-        if state.x then
-            state.x:add(state.update)
-            x:copy(state.x)
-        else
+        if nesterov then
+            -- only correction update
+            x:addcdiv(-lr, dfdx, state.tmp)
+        else -- classical momentum
             x:add(state.update)
         end
     else
@@ -72,13 +65,10 @@ function optim.grmsprop(opfunc, x, config, state)
     local alpha = config.alpha or 0.99
     local epsilon = config.epsilon or 1e-8
     local momentum = config.momentum or 0.9
+    local nesterov = config.nesterov_momentum or false
 
-    if state.update then
-        if state.x then
-            state.x:copy(x)
-        else
-            state.x = x:clone()
-        end
+    -- if nesterov do the update first
+    if state.update and nesterov then
         x:add(config.momentum, state.update)
     end
 
@@ -107,10 +97,10 @@ function optim.grmsprop(opfunc, x, config, state)
     state.tmp:cmul(state.g, state.g):mul(-1):add(state.m):sqrt():add(epsilon)
     if momentum ~= 0 then
         state.update:mul(momentum):addcdiv(-lr, dfdx, state.tmp)
-        if state.x then
-            state.x:add(state.update)
-            x:copy(state.x)
-        else
+        if nesterov then
+            -- only correction update
+            x:addcdiv(-lr, dfdx, state.tmp)
+        else -- classical momentum
             x:add(state.update)
         end
     else
