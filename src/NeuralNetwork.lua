@@ -172,6 +172,8 @@ function NeuralNetwork:init()
     print(self.criterion)
     if self.conf.optimizer == "rmsprop" then
         self.optim = optim.rmsprop
+    elseif self.conf.optimizer == "g_rmsprop" then
+        self.optim = optim.grmsprop
     elseif self.conf.optimizer == "adadelta" then
         self.optim = optim.adadelta
     else
