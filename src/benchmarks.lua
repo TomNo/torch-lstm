@@ -10,6 +10,21 @@ require 'Bgru'
 require 'RecLayer'
 require 'utils'
 
+
+cmd = torch.CmdLine()
+cmd:text()
+cmd:text()
+cmd:text('Benchmarking a simple network')
+cmd:text()
+cmd:text('Options')
+cmd:option('--input_size', 512, 'Input layer size')
+cmd:option('--output_size', 512, 'Output layer size')
+cmd:option('--depth', 1, 'Depth of benchmarked network')
+cmd:option('--history', 100, 'Length of the sequences')
+cmd:option('--nseq', 16, 'Sequence count')
+cmd:text()
+params = cmd:parse(arg)
+
 -- comparsion of implemented modules with ElementResearch implementation
 
 --[[
@@ -98,19 +113,19 @@ function runBenchmark(iSize, oSize, history, nSeq, depth)
 end
 
 
-local iSize = 128
-local oSize = 128
-local nSeq = 16
-local history = {100, 200, 300, 400, 500}
-local depths = {1, 2, 3}
+--local iSize = 128
+--local oSize = 128
+--local nSeq = 16
+--local history = {100, 200, 300, 400, 500}
+--local depths = {1, 2, 3}
 
-for y=1, #depths do
-    for i=1, #history do
-        runBenchmark(iSize, oSize, history[i], nSeq, depths[y])
-        print("\n")
-    end
-end
-
+--for y=1, #depths do
+--    for i=1, #history do
+--        runBenchmark(iSize, oSize, history[i], nSeq, depths[y])
+--        print("\n")
+--    end
+--end
+runBenchmark(params.input_size, params.output_size, params.history, params.nseq, params.depth)
 
 
 
