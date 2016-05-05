@@ -20,7 +20,7 @@ require 'utils'
 -- history - number of timestep in sequence
 -- nSeq    - number of concurently executed sequences
  ]]
-local function benchmark(modA, modB, iSize, history, nSeq)
+local function benchmark(modA, modB, iSize, history, nSeq, depth)
     collectgarbage()
     local input = torch.range(1, iSize * history * nSeq):reshape(history*nSeq, iSize):cuda()
     local result = {}
@@ -31,7 +31,11 @@ local function benchmark(modA, modB, iSize, history, nSeq)
         sIndex = sIndex + nSeq
     end
     local cMem, _ = cutorch.getMemoryUsage()
-    local a = modA:cuda()
+    local a = nn.Sequential()
+    for _=1, depth do
+        a:add(modA:clone())
+    end
+    a = a:cuda()
     table.insert(result, torch.type(modB))
     local sTime = os.clock()
     a:forward(sInput)
@@ -42,7 +46,11 @@ local function benchmark(modA, modB, iSize, history, nSeq)
     table.insert(result, memoryConcumption)
     collectgarbage()
     local cMem, _ = cutorch.getMemoryUsage()
-    local b = modB:cuda()
+    local b = nn.Sequential()
+    for _=1, depth do
+        b:add(modB:clone())
+    end
+    b = b:cuda()
     local bSizes = {}
     for _=1, history do
         table.insert(bSizes, nSeq)
@@ -59,21 +67,23 @@ local function benchmark(modA, modB, iSize, history, nSeq)
 end
 
 
-function runBenchmark(iSize, oSize, nSeq, history)
-    local bOSize = oSize / 2
-    print(string.format("Benchmark results for input size: %s, output size: %s, history: %s and %s sequences",
-         iSize, oSize, history, nSeq))
+function runBenchmark(iSize, oSize, history, nSeq, depth)
+    print(string.format("Benchmark results for following parameters:"))
+    print(string.format("input size: %s ,output size: %s, history: %s, depth=%s, %s sequences",
+         iSize, oSize, history, depth, nSeq))
     print("               | ElementResearch   | Own implementation")
     print("Module type    | Time    |  Memory | Time    |  Memory ")
+
+    local bOSize = oSize / 2
 
     local bModules = {{nn.Sequencer(nn.LSTM(iSize, oSize)), nn.Lstm(iSize, oSize, history)},
         {nn.Sequencer(nn.GRU(iSize, oSize)), nn.Gru(iSize, oSize, history)},
         {nn.BiSequencer(nn.LSTM(iSize, bOSize), nn.LSTM(iSize, bOSize)), nn.Blstm(iSize, oSize, history)},
-        {nn.BiSequencer(nn.GRU(iSize, bOSize), nn.GRU(iSize, bOSize)), nn.Bgru(iSize, oSize, history)} }
+        {nn.BiSequencer(nn.GRU(iSize, bOSize), nn.GRU(iSize, bOSize)), nn.Bgru(iSize, oSize, history)}}
 
 
     for i=1, #bModules do
-        local result = benchmark(bModules[i][1], bModules[i][2], iSize, history, nSeq)
+        local result = benchmark(bModules[i][1], bModules[i][2], iSize, history, nSeq, depth)
         for y=1, #result do
             result[y] = result[y] .. "                         "
         end
@@ -84,20 +94,23 @@ function runBenchmark(iSize, oSize, nSeq, history)
             string.sub(result[5], 1 , 5)))
         bModules[i][1] = nil
         bModules[i][2] = nil
-        collectgarbage()
     end
 end
 
 
-local iSizes = 512
-local oSizes = 512
-local nSeq = 32
-local history = {50, 100, 150}
+local iSize = 128
+local oSize = 128
+local nSeq = 16
+local history = {100, 200, 300, 400, 500}
+local depths = {1, 2, 3}
 
-for i=1, #history do
-    runBenchmark(iSizes, oSizes, nSeq, history[i])
-    print("\n")
+for y=1, #depths do
+    for i=1, #history do
+        runBenchmark(iSize, oSize, history[i], nSeq, depths[y])
+        print("\n")
+    end
 end
+
 
 
 
