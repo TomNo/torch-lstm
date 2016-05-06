@@ -8,6 +8,7 @@ require 'Gru'
 require 'Blstm'
 require 'Bgru'
 require 'utils'
+require 'csvigo'
 
 
 cmd = torch.CmdLine()
@@ -16,11 +17,7 @@ cmd:text()
 cmd:text('Benchmarking a simple network')
 cmd:text()
 cmd:text('Options')
-cmd:option('--input_size', 512, 'Input layer size')
-cmd:option('--output_size', 512, 'Output layer size')
-cmd:option('--depth', 1, 'Depth of benchmarked network')
-cmd:option('--history', 100, 'Length of the sequences')
-cmd:option('--nseq', 16, 'Sequence count')
+cmd:option('--output_file', "benchmarks.csv", "Where to store results.")
 cmd:text()
 params = cmd:parse(arg)
 
@@ -39,6 +36,7 @@ local function benchmark(modA, modB, iSize, history, nSeq, depth)
     local result = {}
     local sInput = {}
     local sIndex = 1
+    table.insert(result, torch.type(modB))
     for _=1, history do
         table.insert(sInput, input[{{sIndex, sIndex + nSeq - 1}}])
         sIndex = sIndex + nSeq
@@ -49,7 +47,6 @@ local function benchmark(modA, modB, iSize, history, nSeq, depth)
         a:add(modA:clone())
     end
     a = a:cuda()
-    table.insert(result, torch.type(modB))
     local sTime = os.clock()
     a:forward(sInput)
     a:backward(sInput, sInput)
@@ -95,11 +92,29 @@ function runBenchmark(iSize, oSize, history, nSeq, depth)
     local bModules = {{nn.Sequencer(nn.LSTM(iSize, oSize)), nn.Lstm(iSize, oSize, history)},
         {nn.Sequencer(nn.GRU(iSize, oSize)), nn.Gru(iSize, oSize, history)},
         {nn.BiSequencer(nn.LSTM(iSize, bOSize), nn.LSTM(iSize, bOSize)), nn.Blstm(iSize, oSize, history)},
-        {nn.BiSequencer(nn.GRU(iSize, bOSize), nn.GRU(iSize, bOSize)), nn.Bgru(iSize, oSize, history)}}
+        {nn.BiSequencer(nn.GRU(iSize, bOSize), nn.GRU(iSize, bOSize)), nn.Bgru(iSize, oSize, history)} }
 
+    local addKey = function(key)
+        if not results[key] then
+            results[key] = {}
+        end
+    end
 
     for i=1, #bModules do
         local result = benchmark(bModules[i][1], bModules[i][2], iSize, history, nSeq, depth)
+        local keyMem = result[1] .. "_" .. depth .. "_mem"
+        local keyTime = result[1] .. "_" .. depth .. "_time"
+        local keyMemOrig = keyMem .. "_eresearch"
+        local keyTimeOrig = keyTime .. "_eresearch"
+        addKey(keyMem)
+        addKey(keyTime)
+        addKey(keyMemOrig)
+        addKey(keyTimeOrig)
+        table.insert(results[keyMem], result[5])
+        table.insert(results[keyTime], result[4])
+        table.insert(results[keyMemOrig], result[3])
+        table.insert(results[keyTimeOrig], result[2])
+
         for y=1, #result do
             result[y] = result[y] .. "                         "
         end
@@ -113,19 +128,22 @@ function runBenchmark(iSize, oSize, history, nSeq, depth)
 end
 
 
---local iSize = 128
---local oSize = 128
---local nSeq = 16
---local history = {100, 200, 300, 400, 500}
---local depths = {1, 2, 3}
+local iSize = 128
+local oSize = 128
+local nSeq = 16
+local history = {100, 200, 300, 400, 500}
+local depths = {1, 2, 3}
 
---for y=1, #depths do
---    for i=1, #history do
---        runBenchmark(iSize, oSize, history[i], nSeq, depths[y])
---        print("\n")
---    end
---end
-runBenchmark(params.input_size, params.output_size, params.history, params.nseq, params.depth)
+results = {["history"]=history}
+
+for y=1, #depths do
+    for i=1, #history do
+        runBenchmark(iSize, oSize, history[i], nSeq, depths[y])
+        print("\n")
+    end
+end
+
+csvigo.save(params.output_file, results)
 
 
 
