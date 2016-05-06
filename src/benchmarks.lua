@@ -7,7 +7,6 @@ require 'Lstm'
 require 'Gru'
 require 'Blstm'
 require 'Bgru'
-require 'RecLayer'
 require 'utils'
 
 
@@ -36,7 +35,6 @@ params = cmd:parse(arg)
 -- nSeq    - number of concurently executed sequences
  ]]
 local function benchmark(modA, modB, iSize, history, nSeq, depth)
-    collectgarbage()
     local input = torch.range(1, iSize * history * nSeq):reshape(history*nSeq, iSize):cuda()
     local result = {}
     local sInput = {}
@@ -45,7 +43,7 @@ local function benchmark(modA, modB, iSize, history, nSeq, depth)
         table.insert(sInput, input[{{sIndex, sIndex + nSeq - 1}}])
         sIndex = sIndex + nSeq
     end
-    local cMem, _ = cutorch.getMemoryUsage()
+    local cMem = cutorch.getMemoryUsage()
     local a = nn.Sequential()
     for _=1, depth do
         a:add(modA:clone())
@@ -56,11 +54,12 @@ local function benchmark(modA, modB, iSize, history, nSeq, depth)
     a:forward(sInput)
     a:backward(sInput, sInput)
     table.insert(result, os.clock() - sTime)
-    local fCMem, _ = cutorch.getMemoryUsage()
+    local fCMem = cutorch.getMemoryUsage()
     local memoryConcumption = (cMem - fCMem) / math.pow(2,20)
-    table.insert(result, memoryConcumption)
+    a = nil
     collectgarbage()
-    local cMem, _ = cutorch.getMemoryUsage()
+    table.insert(result, memoryConcumption)
+    local cMem = cutorch.getMemoryUsage()
     local b = nn.Sequential()
     for _=1, depth do
         b:add(modB:clone())
@@ -75,9 +74,11 @@ local function benchmark(modA, modB, iSize, history, nSeq, depth)
     b:forward(input)
     b:backward(input, input)
     table.insert(result, os.clock() - sTime)
-    local fCMem, _ = cutorch.getMemoryUsage()
+    local fCMem = cutorch.getMemoryUsage()
     local memoryConcumption = (cMem - fCMem) / math.pow(2,20)
     table.insert(result, memoryConcumption)
+    b = nil
+    collectgarbage()
     return result
 end
 
@@ -107,8 +108,7 @@ function runBenchmark(iSize, oSize, history, nSeq, depth)
             string.sub(result[1], 1 , 15), string.sub(result[2], 1 , 6),
             string.sub(result[3], 1 , 5), string.sub(result[4], 1 , 6),
             string.sub(result[5], 1 , 5)))
-        bModules[i][1] = nil
-        bModules[i][2] = nil
+        collectgarbage()
     end
 end
 
