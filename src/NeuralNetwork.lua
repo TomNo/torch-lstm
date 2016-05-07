@@ -16,11 +16,7 @@ require 'ParallelTable'
 require 'FFLayer'
 
 
--- TODO resolve bgru batchnormalization and bias
 -- TODO rewrite using nngraph
--- TODO procesing sequences by uterrances
--- TODO baidu ctc https://github.com/baidu-research/warp-ctc/blob/master/torch_binding/TUTORIAL.md
--- TODO refactor all ff layers to one class
 
 torch.setdefaulttensortype('torch.FloatTensor')
 

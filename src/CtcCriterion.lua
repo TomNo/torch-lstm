@@ -3,7 +3,6 @@ require 'nn'
 require 'warp_ctc'
 require 'utils'
 
---TODO optimize validation vs training
 CtcCriterion, parent = torch.class("nn.CtcCriterion","nn.Criterion")
 
 
