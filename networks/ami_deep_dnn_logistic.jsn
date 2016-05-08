@@ -35,16 +35,6 @@
             "batch_normalization": false
         },
         {
-            "size": 1024,
-            "type": "feedforward_logistic",
-            "batch_normalization": false
-        },
-        {
-            "size": 1024,
-            "type": "feedforward_logistic",
-            "batch_normalization": false
-        },
-        {
             "size": 4016,
             "type": "linear"
         },
