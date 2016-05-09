@@ -1,0 +1,36 @@
+{
+    "layers": [
+        {
+            "size": 120,
+            "type": "input"
+        },
+        {
+            "size": 1024,
+            "type": "rec_prelu",
+            "batch_normalization": true
+        },
+        {
+            "size": 1024,
+            "type": "rec_prelu",
+            "batch_normalization": true
+        },
+        {
+            "size": 1024,
+            "type": "rec_prelu",
+            "batch_normalization": true
+        },
+        {
+            "size": 1024,
+            "type": "rec_prelu",
+            "batch_normalization": true
+        },
+        {
+            "size": 4016,
+            "type": "linear"
+        },
+        {
+            "size": 4016,
+            "type": "multiclass_classification"
+        }
+    ]
+}
