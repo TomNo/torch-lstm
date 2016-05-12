@@ -61,7 +61,11 @@ if params.forward_pass then
     print("Forward pass was saved to the: " .. params.forward_output)
 else
     local train_ds = TrainDs(net.conf.train_file, net.conf.cuda, true)
-    local val_ds = TrainDs(net.conf.val_file, net.conf.cuda, true)
+    local val_ds
+    if net.conf.val_file then
+        val_ds = TrainDs(net.conf.val_file, net.conf.cuda, true)
+    end
+
     net:train(train_ds, val_ds)
     net:saveModel(params.output_model)
 end
