@@ -56,7 +56,7 @@ end
 
 
 -- according to alex graves suggestion http://arxiv.org/abs/1308.0850
--- adding gradient everage
+-- adding gradient average
 
 function optim.grmsprop(opfunc, x, config, state)
     config = config or {}
