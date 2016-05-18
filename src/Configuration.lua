@@ -15,7 +15,7 @@ function Configuration:_setDefaults()
     self.decay_every = self.decay_every or 0
     self.max_epochs_no_best = self.max_epochs_no_best or 3
     self.learning_rate_decay = self.learning_rate_decay or 0.5
-    self.min_learning_rate = self.min_learning_rate or 0.00003
+    self.min_learning_rate = self.min_learning_rate or 1e-10
     self.momentum = self.momentum or 0
     self.history = self.history or math.huge
 end
