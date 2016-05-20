@@ -7,19 +7,16 @@
         {
             "size": 1024,
             "type": "bgru",
-            "dropout": 0.10,
             "batch_normalization": true
         },
         {
             "size": 1024,
             "type": "bgru",
-            "dropout": 0.20,
             "batch_normalization": true
         },
         {
             "size": 1024,
             "type": "bgru",
-            "dropout": 0.20,
             "batch_normalization": true
         },
         {
