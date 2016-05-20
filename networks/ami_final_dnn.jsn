@@ -7,23 +7,19 @@
         {
             "size": 2048,
             "type": "feedforward_prelu",
-            "dropout": 0.1,
             "batch_normalization": true
         },
         {
             "size": 2048,
             "type": "feedforward_prelu",
-            "dropout": 0.25,
             "batch_normalization": true
         },
         {
             "size": 2048,
-            "dropout": 0.25,
             "type": "feedforward_prelu",
             "batch_normalization": true
         },
         {
-            "dropout": 0.25,
             "size": 2048,
             "type": "feedforward_prelu",
             "batch_normalization": true
