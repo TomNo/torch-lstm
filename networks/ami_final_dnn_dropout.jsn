@@ -1,0 +1,40 @@
+{
+    "layers": [
+        {
+            "size": 120,
+            "type": "input"
+        },
+        {
+            "size": 2048,
+            "type": "feedforward_prelu",
+            "dropout": 0.1,
+            "batch_normalization": true
+        },
+        {
+            "size": 2048,
+            "type": "feedforward_prelu",
+            "dropout": 0.1,
+            "batch_normalization": true
+        },
+        {
+            "size": 2048,
+            "type": "feedforward_prelu",
+            "dropout": 0.1,
+            "batch_normalization": true
+        },
+        {
+            "size": 2048,
+            "type": "feedforward_prelu",
+            "dropout": 0.1,
+            "batch_normalization": true
+        },
+        {
+            "size": 4016,
+            "type": "linear"
+        },
+        {
+            "size": 4016,
+            "type": "multiclass_classification"
+        }
+    ]
+}
