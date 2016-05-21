@@ -6,15 +6,11 @@
         },
         {
             "size": 1024,
-            "type": "blstm",
-            "dropout": 0.1,
-            "batch_normalization": true
+            "type": "blstm"
         },
         {
             "size": 1024,
-            "type": "blstm",
-            "dropout":0.2,
-            "batch_normalization": true
+            "type": "blstm"
         },
         {
             "size": 42,
