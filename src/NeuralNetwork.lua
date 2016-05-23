@@ -140,16 +140,29 @@ function NeuralNetwork:init()
             local moduleType = torch.type(m)
             if torch.isTensor(m.gradInput) and moduleType ~= 'nn.ConcatTable' then
                 if cache[moduleType] == nil then
-                    cache[moduleType] = torch.CudaStorage(1)
+                    if self.conf.cuda then
+                        cache[moduleType] = torch.CudaStorage(1)
+                        m.gradInput = torch.CudaTensor(cache[moduleType], 1, 0)
+                    else
+                        cache[moduleType] = torch.FloatStorage(1)
+                        m.gradInput = torch.FloatTensor(cache[moduleType], 1, 0)
+                    end
                 end
-                m.gradInput = torch.CudaTensor(cache[moduleType], 1, 0)
+
             end
         end)
         for i, m in ipairs(self.model:findModules('nn.ConcatTable')) do
-            if cache[i % 2] == nil then
-                cache[i % 2] = torch.CudaStorage(1)
+            if self.conf.cuda then
+                if cache[i % 2] == nil then
+                    cache[i % 2] = torch.CudaStorage(1)
+                end
+                m.gradInput = torch.CudaTensor(cache[i % 2], 1, 0)
+            else
+                if cache[i % 2] == nil then
+                    cache[i % 2] = torch.FloatStorage(1)
+                end
+                m.gradInput = torch.FloatTensor(cache[i % 2], 1, 0)
             end
-            m.gradInput = torch.CudaTensor(cache[i % 2], 1, 0)
         end
     end
     self.m_params, self.m_grad_params = self.model:getParameters()
