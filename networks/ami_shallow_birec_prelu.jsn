@@ -41,18 +41,6 @@
             "dropout":0.1
         },
         {
-            "size": 1024,
-            "type": "birec_prelu",
-            "batch_normalization": true,
-            "dropout":0.1
-        },
-        {
-            "size": 1024,
-            "type": "birec_prelu",
-            "batch_normalization": true,
-            "dropout":0.1
-        },
-        {
             "size": 4016,
             "type": "linear"
         },
