@@ -1,7 +1,11 @@
 require 'torch'
 require 'nn'
 
--- Class for scaling peepholes
+--[[
+-- LinearScale performs peephole scaling operation in LSTM architecture
+--]]
+
+
 local LinearScale = torch.class('nn.LinearScale', 'nn.Linear')
 
 

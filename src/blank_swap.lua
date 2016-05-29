@@ -17,9 +17,8 @@ local iData = iFile:read():all()
 for _, val in pairs(iData) do
     local size = val["data"]:size(2)
     local a1 = val["data"][{{},{1, 1}}]:clone()
-    local a2 = val["data"][{{}, {size, size}}]:clone()
-  val["data"][{{}, {1,1}}] = a2
-  val["data"][{{}, {size, size}}] = a1
+    val["data"][{{}, {1, size - 1}}] = val["data"][{{}, {2, size}}]
+    val["data"][{{}, {size, size}}] = a1
 end
 
 local oFile = hdf5.open(params.output_file, "w")

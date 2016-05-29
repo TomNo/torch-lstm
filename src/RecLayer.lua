@@ -7,6 +7,11 @@ require 'Bidirectional'
 require 'AddLinear'
 
 
+--[[
+-- This module represent classic rnn and
+-- its identity variant irnn.
+ ]]
+
 local RecSteps = torch.class("nn.RecSteps", "nn.Steps")
 
 

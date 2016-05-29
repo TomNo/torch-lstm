@@ -1,6 +1,10 @@
 require 'torch'
 require 'nn'
 
+--[[
+-- BatchRecurrent class computes input preactivations for all types of different
+-- recurrent neural networks.
+ ]]
 
 local BatchRecurrent = torch.class('nn.BatchRecurrent', 'nn.Sequential')
 

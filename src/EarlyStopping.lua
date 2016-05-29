@@ -1,10 +1,14 @@
 require 'torch'
 
 
+--[[
+-- EarlyStopping class represent the early stopping technique,
+-- the improvement on cross validation error must be greater than 1%,
+-- in order to be counted as improvement at all
+ ]]
 local EarlyStopping = torch.class('EarlyStopping')
 
--- for epoch to count as improvement the improvement on cross validation error
--- must be greater than 1%
+
 EarlyStopping.MIN_DIFFERENCE_RATE = 0.01
 
 
@@ -49,3 +53,4 @@ end
 
 
 return EarlyStopping
+--eof

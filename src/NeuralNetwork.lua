@@ -424,7 +424,6 @@ end
 
 -- put whole sequence in one batch
 -- TODO put parallel seq in one batch
--- TODO verify that it is working okay
 -- TODO cpu forward pass is not supported
 function NeuralNetwork:forward(data, overlap)
     assert(data:size(2) == self.input_size,

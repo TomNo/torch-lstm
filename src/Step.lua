@@ -39,7 +39,8 @@ function Step:backward(input, gradOutput, scale)
    local currentModule = self.modules[#self.modules]
    for i=#self.modules-1,1,-1 do
       local previousModule = self.modules[i]
-      currentGradOutput = currentModule:backward(previousModule.output, currentGradOutput, scale)
+      currentGradOutput = currentModule:backward(previousModule.output,
+          currentGradOutput, scale)
       currentModule.gradInput = currentGradOutput
       currentModule = previousModule
    end

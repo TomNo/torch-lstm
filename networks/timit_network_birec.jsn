@@ -6,13 +6,13 @@
         },
         {
             "size": 512,
-            "type": "birec_relu",
+            "type": "birec_prelu",
             "dropout": 0.0,
             "batch_normalization": true
         },
         {
             "size": 512,
-            "type": "birec_relu",
+            "type": "birec_prelu",
             "dropout": 0.0,
             "batch_normalization": true
         },

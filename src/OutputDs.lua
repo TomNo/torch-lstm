@@ -2,6 +2,10 @@ require 'hdf5'
 require 'torch'
 
 
+--[[
+-- OutputDs class is used for saving the forward pass in to the file.
+ ]]
+
 local OutputDs = torch.class("OutputDs")
 
 

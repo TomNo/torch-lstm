@@ -3,7 +3,7 @@ require 'optim'
 
 
 -- overide standard rmsprop in the optim package
--- and mix it up with the nesterov momentum
+-- and mix it up with the nesterov and classic momentum
 -- http://www.cs.utoronto.ca/~ilya/pubs/2013/1051_2.pdf
 
 
@@ -56,7 +56,7 @@ end
 
 
 -- according to alex graves suggestion http://arxiv.org/abs/1308.0850
--- adding gradient average
+-- adding gradient average + nesterov + classical momentum
 
 function optim.grmsprop(opfunc, x, config, state)
     config = config or {}

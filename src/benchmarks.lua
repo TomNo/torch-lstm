@@ -1,3 +1,7 @@
+--[[
+-- This module executes set of benchmarks against the standard rnn library
+ ]]
+
 require 'torch'
 require 'cutorch'
 require 'nn'
@@ -144,13 +148,3 @@ for y=1, #depths do
 end
 
 csvigo.save(params.output_file, results)
-
-
-
-
-
-
-
-
-
-

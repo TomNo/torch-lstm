@@ -7,21 +7,21 @@
         {
             "size": 512,
             "type": "blstm",
-            "dropout": 0.0,
-            "batch_normalization": false
+            "batch_normalization": true,
+            "dropout": 0.1
         },
         {
             "size": 512,
             "type": "blstm",
-            "dropout": 0.0,
-            "batch_normalization": false
+            "batch_normalization": true,
+            "dropout": 0.1
         },
         {
-            "size": 1941,
+            "size": 49,
             "type": "linear"
         },
         {
-            "size": 1941,
+            "size": 49,
             "type": "ctc"
         }
     ]

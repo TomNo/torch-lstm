@@ -4,6 +4,12 @@ require 'BatchRecurrent'
 require 'SharedInput'
 
 
+--[[
+-- Bidirectional class, represents bidirectional recurrent neural networks.
+-- One module always propagates its input in the opposite direction.
+ ]]
+
+
 local Bidirectional = torch.class("nn.Bidirectional", "nn.BatchRecurrent")
 
 

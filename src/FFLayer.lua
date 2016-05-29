@@ -1,6 +1,11 @@
 require 'nn'
 require 'torch'
 
+--[[
+-- FFLayer class, represents typical layer of DNN.
+ ]]
+
+
 local FFLayer, parent = torch.class("nn.FFLayer", "nn.Sequential")
 
 

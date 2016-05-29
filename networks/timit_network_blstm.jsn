@@ -7,14 +7,12 @@
         {
             "size": 512,
             "type": "blstm",
-            "dropout": 0.0,
-            "batch_normalization": false
+            "batch_normalization": true
         },
         {
             "size": 512,
             "type": "blstm",
-            "dropout": 0.0,
-            "batch_normalization": false
+            "batch_normalization": true
         },
         {
             "size": 1940,

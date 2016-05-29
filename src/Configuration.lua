@@ -22,7 +22,6 @@ end
 
 
 -- Firt try to conver to number, then bool otherwise string is returned
--- TODO this can be pretty messy if something goes wrong -> terrible debugging
 function Configuration:_parseOption(val)
     local num_result = tonumber(val)
     if num_result ~= nil then
@@ -46,7 +45,8 @@ function Configuration:_parse(filename)
         line = line:gsub("%s*", "")
         local result = line:split("=")
         if self[result[1]] then
-            error(string.format("Attribute %s, is already present in the configuration.", result[1]))
+            local msg = "Attribute %s, is already present in the configuration."
+            error(string.format(msg, result[1]))
         else
             self[result[1]] = self:_parseOption(result[2])
             print(string.format("\t%s = %s", result[1], self[result[1]]))

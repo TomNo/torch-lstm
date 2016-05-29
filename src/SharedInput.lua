@@ -1,7 +1,7 @@
 require 'nn'
 require 'torch'
 
--- similair to concat table but simpler and memory eficient backward
+-- similair to concat table but simpler and more memory eficient backward
 local SharedInput = torch.class('nn.SharedInput', 'nn.Container')
 
 

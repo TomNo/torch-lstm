@@ -55,6 +55,16 @@
             "batch_normalization": true
         },
         {
+            "size": 1024,
+            "type": "feedforward_prelu",
+            "batch_normalization": true
+        },
+        {
+            "size": 1024,
+            "type": "feedforward_prelu",
+            "batch_normalization": true
+        },
+        {
             "size": 4016,
             "type": "linear"
         },

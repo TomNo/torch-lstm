@@ -2,6 +2,19 @@ require 'torch'
 require 'nn'
 
 
+--[[
+-- AddLinear class modifies standard Linear class,
+-- so the output of affine transformation can be added directly to the
+-- prepared Tensor, which is supplied during forward pass.
+--
+-- During forward pass is expected table with two Tensors,
+-- first item should be the Tensor into which the result should be added
+-- and second should be input to the affine transformation.
+--
+-- GradInput consist of table, which contains two Tensors representing gradInput
+-- for the input modules.
+ ]]
+
 local AddLinear = torch.class("nn.AddLinear", "nn.Linear")
 
 

@@ -6,15 +6,15 @@
         },
         {
             "size": 512,
-            "type": "brec_relu",
-            "dropout": 0.0,
-            "batch_normalization": false
+            "type": "brec_prelu",
+            "dropout": 0,
+            "batch_normalization": true
         },
         {
             "size": 512,
-            "type": "brec_relu",
-            "dropout": 0.0,
-            "batch_normalization": false
+            "type": "brec_prelu",
+            "dropout": 0,
+            "batch_normalization": true
         },
         {
             "size": 1940,

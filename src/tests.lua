@@ -10,7 +10,8 @@ require 'NeuralNetwork'
 tester = torch.Tester()
 
 
-classNames = { "LinearScale", "LstmStep", "Lstm", "Blstm", "GruStep", "Gru", "Bgru", "RecLayer" }
+classNames = { "LinearScale", "LstmStep", "Lstm", "Blstm", "GruStep", "Gru",
+    "Bgru", "RecLayer" }
 
 
 cond = 1e-4
@@ -51,7 +52,8 @@ for i = 1, #classNames do
     require(classNames[i])
 end
 
-classes = { nn.LinearScale, nn.LstmStep, nn.Lstm, nn.Blstm, nn.GruStep, nn.Gru, nn.Bgru, nn.RecLayer}
+classes = { nn.LinearScale, nn.LstmStep, nn.Lstm, nn.Blstm, nn.GruStep, nn.Gru,
+    nn.Bgru, nn.RecLayer}
 
 rnn = function(a, b, c) return nn.RecLayer(nn.Tanh, a, b, c) end
 brnn = function(a, b, c) return nn.BiRecLayer(nn.Tanh, a, b, c) end

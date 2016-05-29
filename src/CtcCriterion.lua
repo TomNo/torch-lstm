@@ -75,7 +75,15 @@ function CtcCriterion:_foldGradInput(input, grads)
 end
 
 function CtcCriterion:updateGradInput(input, target)
-   return self:_foldGradInput(input, self.grads)
+        self:_foldGradInput(input, self.grads)
+        if self.gradInput:ne(self.gradInput):sum() > 0 then
+            print("actual:input")
+            print(self.aInput)
+            print("gradInput nans:")
+            print(self.gradInput)
+            error("Nans occured in self.grads.")
+        end
+   return self.gradInput
 end
 
 function CtcCriterion:cuda()

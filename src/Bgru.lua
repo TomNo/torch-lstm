@@ -3,6 +3,9 @@ require 'nn'
 require 'GruSteps'
 require 'Bidirectional'
 
+--[[
+-- Bidirectional gated recurrent nit
+ ]]
 
 local Bgru = torch.class('nn.Bgru', 'nn.Bidirectional')
 
