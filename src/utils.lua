@@ -47,26 +47,44 @@ function utils.removeNonNumbers(x)
 end
 
 
---[[
--- Levenstein distance
--- copy & paste from https://rosettacode.org/wiki/Levenshtein_distance#Lua
- ]]
-function utils.leven(s,t)
-    if s == '' then return t:len() end
-    if t == '' then return s:len() end
 
-    local s1 = s:sub(2, -1)
-    local t1 = t:sub(2, -1)
+-- modified https://gist.github.com/Nayruden/427389
+function utils.leven(s, t)
+    local s_len, t_len = #s, #t
 
-    if s:sub(0, 1) == t:sub(0, 1) then
-        return leven(s1, t1)
+    local min = math.min
+    local num_columns = t_len + 1
+
+    local d = {}
+
+    for i=0, s_len do
+        d[ i * num_columns ] = i
+    end
+    for j=0, t_len do
+        d[ j ] = j
     end
 
-    return 1 + math.min(
-        leven(s1, t1),
-        leven(s,  t1),
-        leven(s1, t )
-      )
+    for i=1, s_len do
+        local i_pos = i * num_columns
+        for j=1, t_len do
+            local add_cost = (s[ i ] ~= t[ j ] and 1 or 0)
+            local val = min(
+                d[ i_pos - num_columns + j ] + 1,
+                d[ i_pos + j - 1 ] + 1,
+                d[ i_pos - num_columns + j - 1 ] + add_cost
+            )
+            d[ i_pos + j ] = val
+
+            if i > 1 and j > 1 and s[ i ] == t[ j - 1 ] and s[ i - 1 ] == t[ j ] then
+                d[ i_pos + j ] = min(
+                    val,
+                    d[ i_pos - num_columns - num_columns + j - 2 ] + add_cost
+                )
+            end
+
+        end
+    end
+    return d[#d]
 end
 
 --eof

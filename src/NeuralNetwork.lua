@@ -326,10 +326,10 @@ function NeuralNetwork:train(dataset, cv_dataset)
             self.conf.split_sequences, cLabels)
         local e_error = 0
         local e_predictions = 0
-        local i_count = 0
         local grad_clips_accs = 0
         local b_count = 0
         local g_error = 0
+        local l_count = 0
         while true do
             local inputs, labels, sizes = dataset:nextBatch()
             if inputs == nil then
@@ -346,11 +346,12 @@ function NeuralNetwork:train(dataset, cv_dataset)
                 -- reset gradients
                 self.m_grad_params:zero()
                 local outputs = self.model:forward(self.inputs, sizes)
-                g_error = g_error + self:_calculateError(outputs, self.labels)
+                g_error = g_error + self:_calculateError(outputs, self.labels,
+                                                         self.model.bSizes)
                 local err = self.criterion:forward(outputs, self.labels, sizes,
                                                    self.model.bSizes)
                 e_error = e_error + err
-                i_count = i_count + utils.sumTable(sizes)
+                l_count = l_count + self._getLabelsCount(labels)
                 local cGradInput = self.criterion:backward(outputs, self.labels)
                 self.model:backward(self.inputs, cGradInput)
                 -- apply gradient clipping
@@ -374,7 +375,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
         e_error = e_error / b_count
         print(string.format("Loss on training set is: %.4f", e_error))
         print(string.format("Error on training set set is: %.2f%%",
-                            g_error / i_count * 100))
+                            g_error / l_count * 100))
         if self.conf.learning_rate_decay and epoch % self.conf.decay_every == 0 then
             local nLr = opt_params.learningRate * self.conf.learning_rate_decay
             local mLr = self.conf.min_learning_rate
@@ -428,21 +429,48 @@ function NeuralNetwork:train(dataset, cv_dataset)
 end
 
 
-function NeuralNetwork:_calculateError(predictions, labels)
+function NeuralNetwork._getLabelsCount(labels)
+    if type(labels) == "table" then
+        -- ctc there will be one general table with lots of smaller tables
+        local result = 0
+        for i=1, #labels do
+            result = result + #labels[i]
+        end
+        return result
+    else
+        return labels:size(1)
+    end
+end
+
+
+function NeuralNetwork:_calculateError(predictions, labels, bsizes)
     local result
     if torch.type(self.criterion) == self.CTC_CRITERION then
+        -- convert back to regular sequences
         local aOutput = {}
-        local aLabels = predictions:max(2)
-        local pSymbol = -1
-        for i=1, aLabels:size(1) do
-            if aLabels[i] ~= 1 and aLabels[i] ~= pSymbol then
-                table.insert(aOutput, aLabels[i])
-                pSymbol = aLabels[i]
+        -- spawn as many tables as there are sequences
+        for i=1, bsizes[1] do
+            table.insert(aOutput, {})
+        end
+        local _, outputs = predictions:max(2)
+        local index = 1
+        for i=1, #bsizes do
+            for y=1, bsizes[i] do
+                -- insert only if not blank or the same item as the previous one
+                local val = outputs[index][1] - 1
+                if val ~= 0 and
+                        (#aOutput[y] == 0 or val ~= aOutput[y][#aOutput[y]]) then
+                    table.insert(aOutput[y], val)
+                end
+                index = index + 1
             end
-            utils.levens
         end
 
-        utils.leven
+        result = 0
+        for i=1, #aOutput do
+            result = result + utils.leven(aOutput[i], labels[i])
+        end
+        return result
     else
         local _, preds = predictions:max(2)
         result = preds:typeAs(labels):ne(labels):sum()
@@ -506,7 +534,7 @@ function NeuralNetwork:test(dataset)
     local g_error = 0
     local c_error = 0
     local b_count = 0
-    local i_count = 0
+    local l_count = 0
     self.model:evaluate()
     local cLabels = true
     if torch.type(self.criterion) == self.CTC_CRITERION then
@@ -526,8 +554,9 @@ function NeuralNetwork:test(dataset)
         self:_setTrainData(inputs, labels)
         b_count = b_count + 1
         local output = self.model:forward(self.inputs, sizes)
-        g_error = g_error + self:_calculateError(output, self.labels)
-        i_count = i_count + utils.sumTable(sizes)
+        g_error = g_error + self:_calculateError(output, self.labels,
+                                                 self.model.bSizes)
+        l_count = l_count + self._getLabelsCount(labels)
         if self.criterion.forwardOnly then
             c_error = c_error + self.criterion:forwardOnly(output, self.labels,
                 sizes, self.model.bSizes)
@@ -537,7 +566,7 @@ function NeuralNetwork:test(dataset)
         end
     end
     collectgarbage()
-    return c_error / b_count, g_error/i_count * 100
+    return c_error / b_count, g_error/l_count * 100
 end
 
 
