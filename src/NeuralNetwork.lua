@@ -329,6 +329,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
         local i_count = 0
         local grad_clips_accs = 0
         local b_count = 0
+        local g_error = 0
         while true do
             local inputs, labels, sizes = dataset:nextBatch()
             if inputs == nil then
@@ -345,10 +346,13 @@ function NeuralNetwork:train(dataset, cv_dataset)
                 -- reset gradients
                 self.m_grad_params:zero()
                 local outputs = self.model:forward(self.inputs, sizes)
-                local err = self.criterion:forward(outputs, self.labels, sizes, self.model.bSizes)
+                g_error = g_error + self:_calculateError(outputs, self.labels)
+                local err = self.criterion:forward(outputs, self.labels, sizes,
+                                                   self.model.bSizes)
                 e_error = e_error + err
                 i_count = i_count + utils.sumTable(sizes)
-                self.model:backward(self.inputs, self.criterion:backward(outputs, self.labels))
+                local cGradInput = self.criterion:backward(outputs, self.labels)
+                self.model:backward(self.inputs, cGradInput)
                 -- apply gradient clipping
                 self.m_grad_params:clamp(CLIP_MIN, CLIP_MAX)
                 if self.conf.verbose then
@@ -369,6 +373,8 @@ function NeuralNetwork:train(dataset, cv_dataset)
         end
         e_error = e_error / b_count
         print(string.format("Loss on training set is: %.4f", e_error))
+        print(string.format("Error on training set set is: %.2f%%",
+                            g_error / i_count * 100))
         if self.conf.learning_rate_decay and epoch % self.conf.decay_every == 0 then
             local nLr = opt_params.learningRate * self.conf.learning_rate_decay
             local mLr = self.conf.min_learning_rate
@@ -422,6 +428,28 @@ function NeuralNetwork:train(dataset, cv_dataset)
 end
 
 
+function NeuralNetwork:_calculateError(predictions, labels)
+    local result
+    if torch.type(self.criterion) == self.CTC_CRITERION then
+        local aOutput = {}
+        local aLabels = predictions:max(2)
+        local pSymbol = -1
+        for i=1, aLabels:size(1) do
+            if aLabels[i] ~= 1 and aLabels[i] ~= pSymbol then
+                table.insert(aOutput, aLabels[i])
+                pSymbol = aLabels[i]
+            end
+            utils.levens
+        end
+
+        utils.leven
+    else
+        local _, preds = predictions:max(2)
+        result = preds:typeAs(labels):ne(labels):sum()
+    end
+    return result
+end
+
 -- put whole sequence in one batch
 -- TODO put parallel seq in one batch
 -- TODO cpu forward pass is not supported
@@ -455,7 +483,8 @@ function NeuralNetwork:forward(data, overlap)
     local output = torch.Tensor(data:size(1), self.output_size)
     --calculate first the end of the sequence
     local eInt = { { data:size(1) - self.conf.history + 1, data:size(1) } }
-    output[eInt]:copy(self.model:forward(data[eInt]:cuda(), { data[eInt]:size(1) }))
+    output[eInt]:copy(self.model:forward(data[eInt]:cuda(),
+                      { data[eInt]:size(1) }))
     -- cut off output that goes after each other between overlap and overlap + step time step
     local modelOutput = self.model:forward(input, sizes)
     -- copy the first overlap - begining of the whole sequence
@@ -464,7 +493,8 @@ function NeuralNetwork:forward(data, overlap)
     end
     local linOutput = modelOutput[{ { overlap * iSeqs + 1, (overlap + step) * iSeqs } }]
     -- transform to regular sequence
-    linOutput = linOutput:view(step, iSeqs, self.output_size):transpose(1, 2):reshape(iSeqs * step, self.output_size)
+    linOutput = linOutput:view(step, iSeqs, self.output_size)
+    linOutput = linOutput:transpose(1, 2):reshape(iSeqs * step, self.output_size)
     output[{ { overlap + 1, overlap + linOutput:size(1) } }]:copy(linOutput)
 
     return output
@@ -496,6 +526,7 @@ function NeuralNetwork:test(dataset)
         self:_setTrainData(inputs, labels)
         b_count = b_count + 1
         local output = self.model:forward(self.inputs, sizes)
+        g_error = g_error + self:_calculateError(output, self.labels)
         i_count = i_count + utils.sumTable(sizes)
         if self.criterion.forwardOnly then
             c_error = c_error + self.criterion:forwardOnly(output, self.labels,
@@ -506,7 +537,7 @@ function NeuralNetwork:test(dataset)
         end
     end
     collectgarbage()
-    return c_error / b_count
+    return c_error / b_count, g_error/i_count * 100
 end
 
 

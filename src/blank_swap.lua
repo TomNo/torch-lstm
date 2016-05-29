@@ -12,13 +12,15 @@ cmd:option('--output_file', 'output_swapped.hdf5', 'Output file with swapped bla
 
 params = cmd:parse(arg)
 
+pr =  {2, 2}
 local iFile = hdf5.open(params.input_file)
 local iData = iFile:read():all()
 for _, val in pairs(iData) do
     local size = val["data"]:size(2)
     local a1 = val["data"][{{},{1, 1}}]:clone()
-    val["data"][{{}, {1, size - 1}}] = val["data"][{{}, {2, size}}]
-    val["data"][{{}, {size, size}}] = a1
+    local a2 = val["data"][{{}, pr}]:clone()
+  val["data"][{{}, {1,1}}] = a2
+  val["data"][{{}, pr}] = a1
 end
 
 local oFile = hdf5.open(params.output_file, "w")

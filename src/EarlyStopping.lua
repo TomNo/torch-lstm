@@ -26,9 +26,10 @@ end
 
 
 function EarlyStopping:validate(net, dataset)
-    local cv_c_error = net:test(dataset)
+    local cv_c_error, cv_g_error = net:test(dataset)
     local pError = self.lError
     print(string.format("Loss on cv set is: %.4f", cv_c_error))
+    print(string.format("Error on cv set set is: %.2f%%", cv_g_error))
     if cv_c_error < self.lError or not self.bWeights then
         if self.bWeights then
             self.bWeights:copy(net.m_params)
