@@ -1,0 +1,26 @@
+{
+    "layers": [
+        {
+            "size": 120,
+            "type": "input"
+        },
+        {
+            "size": 512,
+            "type": "bgru",
+            "batch_normalization": true
+        },
+        {
+            "size": 512,
+            "type": "bgru",
+            "batch_normalization": true
+        },
+        {
+            "size": 49,
+            "type": "linear"
+        },
+        {
+            "size": 49,
+            "type": "ctc"
+        }
+    ]
+}
