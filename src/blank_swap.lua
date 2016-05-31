@@ -1,8 +1,5 @@
 require 'hdf5'
 
--- swaps the blank symbol from 1st position to the last in the *hdf5*
--- file format because essen assumes its position differently
-
 cmd = torch.CmdLine()
 cmd:text()
 cmd:text()
@@ -12,7 +9,7 @@ cmd:option('--output_file', 'output_swapped.hdf5', 'Output file with swapped bla
 
 params = cmd:parse(arg)
 
-pr =  {2, 2}
+pr =  {4, 4}
 local iFile = hdf5.open(params.input_file)
 local iData = iFile:read():all()
 for _, val in pairs(iData) do

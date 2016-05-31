@@ -6,12 +6,22 @@
         },
         {
             "size": 512,
-            "type": "bgru",
+            "type": "brec_tanh",
             "batch_normalization": true
         },
         {
             "size": 512,
-            "type": "bgru",
+            "type": "brec_tanh",
+            "batch_normalization": true
+        },
+        {
+            "size": 512,
+            "type": "brec_tanh",
+            "batch_normalization": true
+        },
+        {
+            "size": 512,
+            "type": "brec_tanh",
             "batch_normalization": true
         },
         {

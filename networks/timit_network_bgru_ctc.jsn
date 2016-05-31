@@ -6,15 +6,13 @@
         },
         {
             "size": 512,
-            "type": "blstm",
-            "batch_normalization": true,
-            "dropout": 0.1
+            "type": "bgru",
+            "batch_normalization": true
         },
         {
             "size": 512,
-            "type": "blstm",
-            "batch_normalization": true,
-            "dropout": 0.1
+            "type": "bgru",
+            "batch_normalization": true
         },
         {
             "size": 49,

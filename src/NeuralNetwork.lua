@@ -351,7 +351,7 @@ function NeuralNetwork:train(dataset, cv_dataset)
                 local err = self.criterion:forward(outputs, self.labels, sizes,
                                                    self.model.bSizes)
                 e_error = e_error + err
-                l_count = l_count + self._getLabelsCount(labels)
+                l_count = l_count + self._getLabelsCount(self.labels)
                 local cGradInput = self.criterion:backward(outputs, self.labels)
                 self.model:backward(self.inputs, cGradInput)
                 -- apply gradient clipping
